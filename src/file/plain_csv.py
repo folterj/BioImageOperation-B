@@ -1,5 +1,4 @@
 import csv
-import numpy as np
 
 
 def export_csv(infilename, outfilename, headers, data):
@@ -9,6 +8,10 @@ def export_csv(infilename, outfilename, headers, data):
         with open(outfilename, 'w', newline='') as outfile:
             writer = csv.writer(outfile)
             writer.writerow(headers0 + headers)
-            for row in np.transpose(data):
-                row0 = next(reader)
-                writer.writerow(row0 + list(row))
+            for row in reader:
+                frame = int(row[0])
+                add = []
+                for data_row in data:
+                    if frame in data_row:
+                        add.append(data_row[frame])
+                writer.writerow(row + add)

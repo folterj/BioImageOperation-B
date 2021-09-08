@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from file.bio import import_tracks_by_frame
 from src.file.plain_csv import export_csv
 from parameters import *
+from src.video import annotate_video
 
 
 def get_norm_data(filename):
@@ -21,35 +22,43 @@ def get_norm_data(filename):
 
 
 def get_movement_type(filename):
-    movement_type = []
-    movement_n = []
     movement_time = {'search': 0, 'walk': 0, 'run': 0}
     data = import_tracks_by_frame(filename)
-    v = np.asarray(list(data['v_projection'].values()))
-    v_angle = np.asarray(list(data['v_angle'].values()))
+    frames = data['frame']
+    v_all = data['v_projection']
+    v_angle_all = data['v_angle']
+    v_norm_all = {}
+    v_angle_norm_all = {}
+    movement_type = {}
+    movement_n = {}
+
     meanl = np.mean(list(data['length_major'].values()))
-    v_norm = v / meanl
-    angle_norm = abs(v_angle) / VANGLE_NORM
-    for v, angle in zip(v_norm, angle_norm):
-        if angle > 45 / VANGLE_NORM:
+    for frame, v, v_angle in zip(frames.values(), v_all.values(), v_angle_all.values()):
+        v_norm = v / meanl
+        v_angle_norm = abs(v_angle) / VANGLE_NORM
+        if v_angle_norm > 45 / VANGLE_NORM:
             type = 'search'
             n = 1
-        elif v > 2:
+        elif v_norm > 2:
             type = 'run'
             n = 3
-        elif v > 0.5:
+        elif v_norm > 0.5:
             type = 'walk'
             n = 2
         else:
             type = ''
             n = 0
-        movement_type.append(type)
-        movement_n.append(n)
+        v_norm_all[frame] = v_norm
+        v_angle_norm_all[frame] = v_angle_norm
+        movement_type[frame] = type
+        movement_n[frame] = n
         if type != '':
             movement_time[type] += 1
+    n = len(v_all)
     for type in movement_time:
-        print(f'{type}: {movement_time[type]} {movement_time[type] / len(v_norm) * 100:.1f}%')
-    return v_norm, angle_norm, movement_type, movement_n
+        print(f'{type}: {movement_time[type]} {movement_time[type] / n * 100:.1f}%')
+    headers = ['v_projection_norm', 'v_angle_norm', 'movement_type', 'movement_n']
+    return frames, headers, (v_norm_all, v_angle_norm_all, movement_type, movement_n)
 
 
 def get_hist_data(data, range):
@@ -100,28 +109,34 @@ def get_v_hists(filename, ax_v, ax_vangle):
     return hist_v, hist_vangle
 
 
-def draw_hists(files):
-    nfigs = len(files) * 2
-    ncols = int(ceil(sqrt(nfigs) / 2) * 2)
-    nrows = int(ceil(nfigs / ncols))
+def draw_hists(files, show_grid=True):
+    if show_grid:
+        nfigs = len(files) * 2
+        ncols = int(ceil(sqrt(nfigs) / 2) * 2)
+        nrows = int(ceil(nfigs / ncols))
 
-    plt.rcParams["axes.titlesize"] = 4
-    plt.rcParams.update({'font.size': 4})
+        plt.rcParams["axes.titlesize"] = 4
+        plt.rcParams.update({'font.size': 4})
 
-    fig, axs0 = plt.subplots(nrows, ncols, dpi=300)
-    axs = np.asarray(axs0).flatten()
+        fig, axs0 = plt.subplots(nrows, ncols, dpi=300)
+        axs = np.asarray(axs0).flatten()
 
-    for ax in axs:
-        ax.axes.get_xaxis().set_visible(False)
-        ax.axes.get_yaxis().set_visible(False)
+        for ax in axs:
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
 
-    i = 0
-    for filename in files:
-        get_v_hists(filename, axs[i], axs[i + 1])
-        i += 2
-
-    plt.tight_layout()
-    plt.show()
+        i = 0
+        for filename in files:
+            get_v_hists(filename, axs[i], axs[i + 1])
+            i += 2
+        plt.tight_layout()
+        plt.show()
+    else:
+        for filename in files:
+            fig, axs0 = plt.subplots(1, 2, dpi=300)
+            axs = np.asarray(axs0).flatten()
+            get_v_hists(filename, axs[0], axs[1])
+        plt.show()
 
 
 def draw_hist(filename):
@@ -136,6 +151,8 @@ if __name__ == '__main__':
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
     #draw_hists(glob.glob(LIVING_EARTH_PATH + "*.csv"))
-    data = get_movement_type(LIVING_EARTH_FILE)
-    export_csv(LIVING_EARTH_FILE, 'D:/Video/Living_Earth/Foraging/tracks1/test.csv',
-               ['v_projection_norm', 'v_angle_norm', 'movement_type', 'movement_n'], data)
+    draw_hists(glob.glob(LIVING_EARTH_INFILE), show_grid=False)
+
+    frames, headers, data = get_movement_type(LIVING_EARTH_INFILE)
+    export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
+    annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, headers, data)
