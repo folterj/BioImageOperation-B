@@ -30,3 +30,8 @@ def get_moments_centre(moments):
 def get_moments_angle(moments):
     # returns value between -90 and 90
     return np.rad2deg(0.5 * math.atan2(2 * moments['mu11'], moments['mu20'] - moments['mu02']))
+
+
+def round_significants(a, significant_digits):
+    round_decimals = significant_digits - int(np.floor(np.log10(abs(a)))) - 1
+    return round(a, round_decimals)
