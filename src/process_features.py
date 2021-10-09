@@ -22,45 +22,70 @@ def get_norm_data(filename):
     return v, v_angle, v_norm, angle_norm, meanl
 
 
-def get_movement_type(filename):
-    movement_time = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}
+def extract_movement(filename, output_type='movement_type'):
+    if output_type == 'movement_type':
+        movement_time = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}
+    elif output_type == 'activity_type':
+        movement_time = {'': 0, 'appendages': 0, 'moving': 0}
+
     data = import_tracks_by_frame(filename)
     dtime = np.mean(np.diff(list(data['time'].values())))
     frames = data['frame']
+    positions = {frame: (x, y) for frame, x, y in zip(frames.values(), data['x'].values(), data['y'].values())}
+    length_major = data['length_major1']
+    length_minor = data['length_minor1']
+    meanl = np.mean(list(length_major.values()))
+    meanw = np.mean(list(length_minor.values()))
     v_all = data['v_projection']
     v_angle_all = data['v_angle']
     v_norm_all = {}
     v_angle_norm_all = {}
+    length_major_delta_all = {}
+    length_minor_delta_all = {}
     movement_type = {}
-    movement_n = {}
 
-    meanl = np.mean(list(data['length_major'].values()))
-    for frame, v, v_angle in zip(frames.values(), v_all.values(), v_angle_all.values()):
+    lenl0 = meanl
+    lenw0 = meanw
+    for frame, v, v_angle, lenl, lenw in zip(frames.values(), v_all.values(), v_angle_all.values(), length_major.values(), length_minor.values()):
         v_norm = v / meanl
+        length_major_delta = abs(lenl - lenl0) / meanl
+        length_minor_delta = abs(lenw - lenw0) / meanw
         v_angle_norm = abs(v_angle) / VANGLE_NORM
-        if v_norm > 3:
-            type = 'ballistic'
-            n = 3
-        elif abs(v_norm) > 0.6:
-            if v_norm > 0.6 and v_angle_norm < 0.05:
-                type = 'levi'
-                n = 2
+        if output_type == 'movement_type':
+
+            if v_norm > 3:
+                type = 'ballistic'
+            elif abs(v_norm) > 0.6:
+                if v_norm > 0.6 and v_angle_norm < 0.05:
+                    type = 'levi'
+                else:
+                    type = 'brownian'
             else:
-                type = 'brownian'
-                n = 1
-        else:
-            type = ''
-            n = 0
+                type = ''
+
+        elif output_type == 'activity_type':
+
+            if v_norm > 0.2:
+                type = 'moving'
+            elif length_major_delta + length_minor_delta > 0.01:
+                type = 'appendages'
+            else:
+                type = ''
+
+        lenl0 = lenl
+        lenw0 = lenw
+
         v_norm_all[frame] = v_norm
         v_angle_norm_all[frame] = v_angle_norm
+        length_major_delta_all[frame] = length_major_delta
+        length_minor_delta_all[frame] = length_minor_delta
         movement_type[frame] = type
-        movement_n[frame] = n
         movement_time[type] += 1
     n = len(v_all)
     for type in movement_time:
         print(f'{type}: {movement_time[type] * dtime:.1f}s {movement_time[type] / n * 100:.1f}%')
-    headers = ['v_projection_norm', 'v_angle_norm', 'movement_type', 'movement_n']
-    return frames, headers, (v_norm_all, v_angle_norm_all, movement_type, movement_n)
+    headers = ['v_projection_norm', 'v_angle_norm', 'length_major_delta', 'length_minor_delta', 'movement_type']
+    return frames, positions, headers, (v_norm_all, v_angle_norm_all, length_major_delta_all, length_minor_delta_all, movement_type)
 
 
 def get_hist_data(data, range):
@@ -182,15 +207,37 @@ if __name__ == '__main__':
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
-    #draw_hists(glob.glob(LIVING_EARTH_PATH + "*.csv"))
-    v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
+    input_files = glob.glob(LIVING_EARTH_PATH + "track_*.csv")
 
-    for v_hist, vangle_hist in zip(v_hists, vangle_hists):
-        print('v')
+    v_hists, vangle_hists = draw_hists(input_files)
+    #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
+
+    for input_file, v_hist, vangle_hist in zip(input_files, v_hists, vangle_hists):
+        filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+        print(f'v {filetitle}')
         print_hist_values(v_hist)
-        print('v_angle')
+        print(f'v_angle {filetitle}')
         print_hist_values(vangle_hist)
+        print()
 
-    frames, headers, data = get_movement_type(LIVING_EARTH_INFILE)
-    export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
-    annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, headers, data)
+    #frames, positions, headers, data = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
+    #export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
+    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, [positions], [headers], [data])
+
+    all_positions = []
+    all_data = []
+    all_headers = []
+    for input_file in input_files:
+        filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+        print(filetitle)
+        frames, positions, headers, data = extract_movement(input_file, output_type='activity_type')
+        output_file = os.path.join(os.path.dirname(input_file), 'activity_' + os.path.basename(input_file))
+        #export_csv(input_file, output_file, headers, data)
+        headers1 = [headers[-1]]
+        data1 = [data[-1]]
+        all_positions.append(positions)
+        all_headers.append(headers1)
+        all_data.append(data1)
+        print()
+
+    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
