@@ -207,7 +207,7 @@ if __name__ == '__main__':
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
-    input_files = glob.glob(LIVING_EARTH_PATH + "track_*.csv")
+    input_files = glob.glob(LIVING_EARTH_PATH + "track*.csv")
 
     v_hists, vangle_hists = draw_hists(input_files)
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
@@ -240,4 +240,4 @@ if __name__ == '__main__':
         all_data.append(data1)
         print()
 
-    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
+    annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
