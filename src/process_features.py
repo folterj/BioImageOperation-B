@@ -139,12 +139,12 @@ def get_v_hists(filename, ax_v, ax_vangle):
     return (hist_v, hist_v_bin_edges), (hist_vangle, hist_vangle_bin_edges)
 
 
-def draw_hists(files, show_pairs=True, show_grid=True):
+def draw_hists(filenames, show_pairs=True, show_grid=True):
     v_hists = []
     vangles_hists = []
 
     if show_grid:
-        nfigs = len(files) * 2
+        nfigs = len(filenames) * 2
         ncols = int(ceil(sqrt(nfigs) / 2) * 2)
         nrows = int(ceil(nfigs / ncols))
 
@@ -159,7 +159,7 @@ def draw_hists(files, show_pairs=True, show_grid=True):
             ax.axes.get_yaxis().set_visible(False)
 
         i = 0
-        for filename in files:
+        for filename in filenames:
             v_hist, vangle_hist = get_v_hists(filename, axs[i], axs[i + 1])
             v_hists.append(v_hist)
             vangles_hists.append(vangle_hist)
@@ -168,7 +168,7 @@ def draw_hists(files, show_pairs=True, show_grid=True):
         plt.show()
 
     elif show_pairs:
-        for filename in files:
+        for filename in filenames:
             fig, axs0 = plt.subplots(1, 2, dpi=PLOT_DPI)
             axs = np.asarray(axs0).flatten()
             v_hist, vangle_hist = get_v_hists(filename, axs[0], axs[1])
@@ -177,7 +177,7 @@ def draw_hists(files, show_pairs=True, show_grid=True):
         plt.show()
 
     else:
-        for filename in files:
+        for filename in filenames:
             fig, axs1 = plt.subplots(1, 1, dpi=PLOT_DPI)
             fig, axs2 = plt.subplots(1, 1, dpi=PLOT_DPI)
             v_hist, vangle_hist = get_v_hists(filename, axs1, axs2)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
-    input_files = glob.glob(LIVING_EARTH_PATH + "track*.csv")
+    input_files = glob.glob(TRACKS_PATH2)
 
     v_hists, vangle_hists = draw_hists(input_files)
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
