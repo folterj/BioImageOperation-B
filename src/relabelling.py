@@ -54,6 +54,7 @@ class Relabeler():
 
 if __name__ == '__main__':
     #annotate()
+
     relabeler = Relabeler(LABEL_ANNOTATION_FILENAME)
     # test:
     input_files = glob.glob(TRACKS_PATH)

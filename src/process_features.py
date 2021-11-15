@@ -1,11 +1,14 @@
+import csv
 import os
 import glob
 from math import sqrt, ceil
 from textwrap import wrap
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from file.bio import import_tracks_by_frame
+from src.BioData import BioData
 from src.file.plain_csv import export_csv
 from parameters import *
 from src.util import round_significants
@@ -85,7 +88,9 @@ def extract_movement(filename, output_type='movement_type'):
     for type in movement_time:
         print(f'{type}: {movement_time[type] * dtime:.1f}s {movement_time[type] / n * 100:.1f}%')
     headers = ['v_projection_norm', 'v_angle_norm', 'length_major_delta', 'length_minor_delta', 'movement_type']
-    return frames, positions, headers, (v_norm_all, v_angle_norm_all, length_major_delta_all, length_minor_delta_all, movement_type)
+    return frames, positions,\
+           headers, (v_norm_all, v_angle_norm_all, length_major_delta_all, length_minor_delta_all, movement_type),\
+           movement_time
 
 
 def get_hist_data(data, range):
@@ -122,7 +127,13 @@ def get_loghist_data(data, power_min, power_max, ax=None, title="", color="#1f77
     return hist, bin_edges
 
 
-def get_v_hists(filename, ax_v, ax_vangle):
+def get_v_percentiles(filename):
+    data = import_tracks_by_frame(filename)
+    v = np.asarray(list(data['v'].values()))
+    return np.percentile(v, [25, 50, 75])
+
+
+def get_v_hists(filename, ax_v=None, ax_vangle=None):
     filetitle = os.path.splitext(os.path.basename(filename))[0].replace("_", " ")
     filetitle_plot = "\n".join(wrap(filetitle, 20))
 
@@ -141,7 +152,7 @@ def get_v_hists(filename, ax_v, ax_vangle):
 
 def draw_hists(filenames, show_pairs=True, show_grid=True):
     v_hists = []
-    vangles_hists = []
+    vangle_hists = []
 
     if show_grid:
         nfigs = len(filenames) * 2
@@ -162,7 +173,7 @@ def draw_hists(filenames, show_pairs=True, show_grid=True):
         for filename in filenames:
             v_hist, vangle_hist = get_v_hists(filename, axs[i], axs[i + 1])
             v_hists.append(v_hist)
-            vangles_hists.append(vangle_hist)
+            vangle_hists.append(vangle_hist)
             i += 2
         plt.tight_layout()
         plt.show()
@@ -173,7 +184,7 @@ def draw_hists(filenames, show_pairs=True, show_grid=True):
             axs = np.asarray(axs0).flatten()
             v_hist, vangle_hist = get_v_hists(filename, axs[0], axs[1])
             v_hists.append(v_hist)
-            vangles_hists.append(vangle_hist)
+            vangle_hists.append(vangle_hist)
         plt.show()
 
     else:
@@ -182,10 +193,10 @@ def draw_hists(filenames, show_pairs=True, show_grid=True):
             fig, axs2 = plt.subplots(1, 1, dpi=PLOT_DPI)
             v_hist, vangle_hist = get_v_hists(filename, axs1, axs2)
             v_hists.append(v_hist)
-            vangles_hists.append(vangle_hist)
+            vangle_hists.append(vangle_hist)
             plt.show()
 
-    return v_hists, vangles_hists
+    return v_hists, vangle_hists
 
 
 def draw_hist(filename):
@@ -203,41 +214,162 @@ def print_hist_values(hist):
               f' {value:.3f}')
 
 
-if __name__ == '__main__':
+def extract_info(input_file):
+    parts = os.path.splitext(os.path.basename(input_file))[0].split('_')
+    i = 0
+    if not parts[i].isnumeric():
+        i += 1
+    date = parts[i]
+    time = parts[i + 1].replace('-', ':')
+    id = parts[-1]
+
+    camera = 0
+    s = input_file.lower().find('cam')
+    if s >= 0:
+        while s < len(input_file) and not input_file[s].isnumeric():
+            s += 1
+        e = s
+        while e < len(input_file) and input_file[e].isnumeric():
+            e += 1
+        if e > s:
+            camera = int(input_file[s:e])
+
+    return [id, date, time, camera]
+
+
+def to_str(lst):
+    return [str(x) for x in lst]
+
+
+def main_old():
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
     input_files = glob.glob(TRACKS_PATH2)
 
-    v_hists, vangle_hists = draw_hists(input_files)
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
 
-    for input_file, v_hist, vangle_hist in zip(input_files, v_hists, vangle_hists):
-        filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
-        print(f'v {filetitle}')
-        print_hist_values(v_hist)
-        print(f'v_angle {filetitle}')
-        print_hist_values(vangle_hist)
-        print()
+    datas = []
+    v_hists = []
+    vangle_hists = []
+    v_percentiles = []
+    for filename in input_files:
+        datas.append(BioData(filename))
+        v_hist, vangle_hist = get_v_hists(filename)
+        v_percentile = get_v_percentiles(filename)
+        v_hists.append(v_hist)
+        vangle_hists.append(vangle_hist)
+        v_percentiles.append(v_percentile)
 
-    #frames, positions, headers, data = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
+    header_standard = ['ID', 'Date', 'Time', 'Camera']
+
+    header_v = header_standard + [str(x) for x in v_hists[0][1]]
+    header_vangle = header_standard + [str(x) for x in vangle_hists[0][1]]
+    with open(OUTPUT_PROFILE_V, 'w', newline='') as csvfile_v, \
+         open(OUTPUT_PROFILE_VANGLE, 'w', newline='') as csvfile_vangle:
+
+        csvwriter_v = csv.writer(csvfile_v)
+        csvwriter_vangle = csv.writer(csvfile_vangle)
+
+        csvwriter_v.writerow(header_v)
+        csvwriter_vangle.writerow(header_vangle)
+
+        for input_file, v_hist, vangle_hist in zip(input_files, v_hists, vangle_hists):
+            filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+            print(f'v {filetitle}')
+            print_hist_values(v_hist)
+            print(f'v_angle {filetitle}')
+            print_hist_values(vangle_hist)
+            print()
+
+            info = extract_info(input_file)
+            csvwriter_v.writerow(to_str(info) + to_str(v_hist[0]))
+            csvwriter_vangle.writerow(to_str(info) + to_str(vangle_hist[0]))
+
+    #frames, positions, headers, data, movement_time = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
     #export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
     #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, [positions], [headers], [data])
 
     all_positions = []
     all_data = []
     all_headers = []
-    for input_file in input_files:
-        filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
-        print(filetitle)
-        frames, positions, headers, data = extract_movement(input_file, output_type='activity_type')
-        output_file = os.path.join(os.path.dirname(input_file), 'activity_' + os.path.basename(input_file))
-        #export_csv(input_file, output_file, headers, data)
-        headers1 = [headers[-1]]
-        data1 = [data[-1]]
-        all_positions.append(positions)
-        all_headers.append(headers1)
-        all_data.append(data1)
-        print()
+    header = header_standard + ['Appendage Movement [s]', 'Appendage Movement [%]',
+                                'Body Movement [s]', 'Body Movement [%]',
+                                'Speed 25 Percentile', 'Speed 50 Percentile', 'Speed 75 Percentile']
 
-    annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
+    with open(OUTPUT_DATAFRAME, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(header)
+        for input_file, v_percentile in zip(input_files, v_percentiles):
+            filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+            print(filetitle)
+
+            info = extract_info(input_file)
+            frames, positions, headers, data, movement_time = extract_movement(input_file, output_type='activity_type')
+
+            #export_csv(input_file, output_file, headers, data)
+            csvwriter_v.writerow(to_str(info) + to_str(v_percentile))
+
+            headers1 = [headers[-1]]
+            data1 = [data[-1]]
+            all_positions.append(positions)
+            all_headers.append(headers1)
+            all_data.append(data1)
+            print()
+
+    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
+
+
+if __name__ == '__main__':
+    #draw_hist(BIO_TRACKING_FILE)
+    #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
+
+    input_files = glob.glob(TRACKS_PATH2)
+
+    #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
+
+    datas = [BioData(filename) for filename in tqdm(input_files)]
+
+    header_standard = ['ID', 'Date', 'Time', 'Camera']
+
+    header_v = header_standard + [str(x) for x in datas[0].v_hist[1]]
+    header_vangle = header_standard + [str(x) for x in datas[0].vangle_hist[1]]
+    with open(OUTPUT_PROFILE_V, 'w', newline='') as csvfile_v, \
+         open(OUTPUT_PROFILE_VANGLE, 'w', newline='') as csvfile_vangle:
+
+        csvwriter_v = csv.writer(csvfile_v)
+        csvwriter_vangle = csv.writer(csvfile_vangle)
+
+        csvwriter_v.writerow(header_v)
+        csvwriter_vangle.writerow(header_vangle)
+
+        for data in datas:
+            csvwriter_v.writerow(to_str(data.info) + to_str(data.v_hist[0]))
+            csvwriter_vangle.writerow(to_str(data.info) + to_str(data.vangle_hist[0]))
+
+    #frames, positions, headers, data, movement_time = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
+    #export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
+    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, [positions], [headers], [data])
+
+    all_positions = []
+    all_data = []
+    all_headers = []
+    header = header_standard + ['Appendage Movement [s]', 'Appendage Movement [%]',
+                                'Body Movement [s]', 'Body Movement [%]',
+                                'Speed 25 Percentile', 'Speed 50 Percentile', 'Speed 75 Percentile']
+
+    with open(OUTPUT_DATAFRAME, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(header)
+        for data in datas:
+            data.classify_movement(output_type='activity_type')
+            output = data.info
+            output.append(data.get_movement_time('appendages'))
+            output.append(data.get_movement_fraction('appendages'))
+            output.append(data.get_movement_time('moving'))
+            output.append(data.get_movement_fraction('moving'))
+            output.extend(data.v_percentiles)
+            #export_csv(input_file, output_file, headers, data)
+            csvwriter.writerow(output)
+
+    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)

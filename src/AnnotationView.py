@@ -36,7 +36,7 @@ class AnnotationView(object):
         fontface = cv.FONT_HERSHEY_SIMPLEX
         scale = 1
         thickness = 1
-        color = (127, 127, 0)
+        color = (255, 255, 0)
         size = cv.getTextSize(label, fontface, scale, thickness)
         cv.putText(self.view_image, label, position, fontface, scale, color, thickness, cv.LINE_AA)
         cv.drawMarker(self.view_image, position, color)
