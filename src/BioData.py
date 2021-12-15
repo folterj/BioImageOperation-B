@@ -13,6 +13,7 @@ class BioData:
         self.start = start + frame0
         self.length = self.frames[-1] - self.frames[0]
         self.end = self.start + self.length
+        self.total_frames = np.asarray(self.frames) + start
         self.old_title = get_filetitle(filename)
         if 'track_label' in data:
             self.old_label = str(data['track_label'][frame0])

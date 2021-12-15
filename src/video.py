@@ -7,6 +7,7 @@ def annotate_videos(video_infiles, video_outfile, datas, outratio=1):
     interval = int(round(1 / outratio))
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
 
+    total_framei = 0
     for video_infile in tqdm(video_infiles):
         vidcap = cv.VideoCapture(video_infile)
         framei = 0
@@ -18,11 +19,12 @@ def annotate_videos(video_infiles, video_outfile, datas, outratio=1):
                 if ok:
                     if framei % interval == 0:
                         for data in datas:
-                            if data.start <= framei <= data.end and framei in data.frames:
+                            if data.start <= total_framei <= data.end and framei in data.frames:
                                 position = (int(round(data.x[framei])), int(round(data.y[framei])))
                                 draw_annotation(video_frame, data.pref_label, position)
                         vidwriter.write(video_frame)
             framei += 1
+            total_framei += 1
         vidcap.release()
     vidwriter.release()
 
