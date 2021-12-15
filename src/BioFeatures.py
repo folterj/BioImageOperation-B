@@ -5,7 +5,7 @@ from src.file.bio import import_tracks_by_frame
 from src.parameters import NBINS, VANGLE_NORM
 
 
-class BioData:
+class BioFeatures:
     def __init__(self, filename):
         self.filename = filename
         self.filetitle = os.path.splitext(os.path.basename(filename))[0].replace("_", " ")

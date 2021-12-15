@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from file.bio import import_tracks_by_frame
-from src.BioData import BioData
+from src.BioFeatures import BioFeatures
 from src.file.plain_csv import export_csv
 from parameters import *
 from src.util import round_significants
@@ -254,7 +254,7 @@ def main_old():
     vangle_hists = []
     v_percentiles = []
     for filename in input_files:
-        datas.append(BioData(filename))
+        datas.append(BioFeatures(filename))
         v_hist, vangle_hist = get_v_hists(filename)
         v_percentile = get_v_percentiles(filename)
         v_hists.append(v_hist)
@@ -328,7 +328,7 @@ if __name__ == '__main__':
 
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
 
-    datas = [BioData(filename) for filename in tqdm(input_files)]
+    datas = [BioFeatures(filename) for filename in tqdm(input_files)]
 
     header_standard = ['ID', 'Date', 'Time', 'Camera']
 

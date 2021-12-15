@@ -1,7 +1,6 @@
 import glob
 import os.path
 import shutil
-
 import cv2 as cv
 import numpy as np
 
@@ -22,21 +21,31 @@ class Relabeler():
     def __init__(self, annotation_filename):
         self.annotations = load_annotations(annotation_filename)
 
-    def get_label_from_file(self, filename):
+    def process_all(self, filenames):
+        for filename in filenames:
+            data = import_tracks_by_frame(filename)
+            old_title = os.path.splitext(os.path.basename(filename))[0]
+            if 'track_label' in data:
+                old_label = str(data['track_label'][0])
+            else:
+                old_label = old_title.rsplit('_')[-1]
+
+
+    def get_best_label_from_file(self, filename):
         data = import_tracks_by_frame(filename)
         old_title = os.path.splitext(os.path.basename(filename))[0]
         if 'track_label' in data:
             old_label = str(data['track_label'][0])
         else:
             old_label = old_title.rsplit('_')[-1]
-        new_label = self.get_label(data)
+        new_label = self.get_best_label(data)
         new_title = old_title
         if new_title.endswith(old_label):
             new_title = new_title.rstrip(old_label)
         new_title += new_label
         return new_label, new_title, old_label, old_title
 
-    def get_label(self, data):
+    def get_best_label(self, data):
         meanx = np.mean(list(data['x'].values()))
         meany = np.mean(list(data['y'].values()))
         mindist = -1
@@ -56,10 +65,11 @@ if __name__ == '__main__':
     #annotate()
 
     relabeler = Relabeler(LABEL_ANNOTATION_FILENAME)
-    # test:
-    input_files = glob.glob(TRACKS_PATH)
-    for input_file in input_files:
-        new_label, new_title, old_label, old_title = relabeler.get_label_from_file(input_file)
-        print(f'{old_title} -> {new_title}')
-        extension = os.path.splitext(input_file)[1]
-        shutil.copy(input_file, os.path.join(TRACKS_RELABEL_PATH, new_title + extension))
+    input_files = sorted(glob.glob(TRACKS_PATH))
+    #for input_file in input_files:
+    #    new_label, new_title, old_label, old_title = relabeler.get_best_label_from_file(input_file)
+    #    print(f'{old_title} -> {new_title}')
+    #    extension = os.path.splitext(input_file)[1]
+    #    shutil.copy(input_file, os.path.join(TRACKS_RELABEL_PATH, new_title + extension))
+    relabeler.process_all(input_files)
+
