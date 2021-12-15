@@ -31,7 +31,7 @@ def import_tracks(filepath, convert_contours=False):
 
 def import_tracks_by_frame(filepath, convert_contours=False):
     # pandas automatically converts values
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, index_col='frame')
     data = df.to_dict()
     if convert_contours:
         for frame_index in data['frame']:

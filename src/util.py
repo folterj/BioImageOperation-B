@@ -1,4 +1,6 @@
 import math
+import os
+
 import numpy as np
 import cv2 as cv
 
@@ -35,3 +37,7 @@ def get_moments_angle(moments):
 def round_significants(a, significant_digits):
     round_decimals = significant_digits - int(np.floor(np.log10(abs(a)))) - 1
     return round(a, round_decimals)
+
+
+def get_filetitle(filename):
+    return os.path.splitext(os.path.basename(filename))[0]

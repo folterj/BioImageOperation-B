@@ -1,5 +1,4 @@
 import csv
-import os
 import glob
 from math import sqrt, ceil
 from textwrap import wrap
@@ -11,7 +10,7 @@ from file.bio import import_tracks_by_frame
 from src.BioFeatures import BioFeatures
 from src.file.plain_csv import export_csv
 from parameters import *
-from src.util import round_significants
+from src.util import round_significants, get_filetitle
 from src.video import annotate_video
 
 
@@ -134,7 +133,7 @@ def get_v_percentiles(filename):
 
 
 def get_v_hists(filename, ax_v=None, ax_vangle=None):
-    filetitle = os.path.splitext(os.path.basename(filename))[0].replace("_", " ")
+    filetitle = get_filetitle(filename).replace("_", " ")
     filetitle_plot = "\n".join(wrap(filetitle, 20))
 
     v, v_angle, normv, norm_angle, meanl = get_norm_data(filename)
@@ -215,7 +214,7 @@ def print_hist_values(hist):
 
 
 def extract_info(input_file):
-    parts = os.path.splitext(os.path.basename(input_file))[0].split('_')
+    parts = get_filetitle(input_file).split('_')
     i = 0
     if not parts[i].isnumeric():
         i += 1
@@ -275,7 +274,7 @@ def main_old():
         csvwriter_vangle.writerow(header_vangle)
 
         for input_file, v_hist, vangle_hist in zip(input_files, v_hists, vangle_hists):
-            filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+            filetitle = get_filetitle(input_file).replace("_", " ")
             print(f'v {filetitle}')
             print_hist_values(v_hist)
             print(f'v_angle {filetitle}')
@@ -301,7 +300,7 @@ def main_old():
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(header)
         for input_file, v_percentile in zip(input_files, v_percentiles):
-            filetitle = os.path.splitext(os.path.basename(input_file))[0].replace("_", " ")
+            filetitle = get_filetitle(input_file).replace("_", " ")
             print(filetitle)
 
             info = extract_info(input_file)

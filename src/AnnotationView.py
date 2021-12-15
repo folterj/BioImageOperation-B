@@ -1,8 +1,7 @@
-from tkinter import simpledialog
 import cv2 as cv
-import tkinter as tk
-
 import numpy as np
+import tkinter as tk
+from tkinter import simpledialog
 
 from src.file.annotations import load_annotations, save_annotations
 from src.parameters import *
@@ -44,6 +43,14 @@ class AnnotationView(object):
 
     def show(self):
         cv.imshow(self.window_name, self.view_image)
+        cv.namedWindow(self.window_name, cv.WINDOW_KEEPRATIO)
+        _, _, w, h = cv.getWindowImageRect(self.window_name)
+        ih = self.view_image.shape[0]
+        iw = self.view_image.shape[1]
+        wr = w / iw
+        hr = h / ih
+        r = min(wr, hr)
+        cv.resizeWindow(self.window_name, int(round(iw * r)), int(round(ih * r)))
 
     def show_loop(self):
         self.show()
@@ -62,6 +69,7 @@ class AnnotationView(object):
             label = simpledialog.askstring('Annotation', 'Label')
             if label is not None:
                 self.annotations.append([x, y, label])
+                self.save()
                 self.redraw()
         elif event == cv.EVENT_RBUTTONUP:
             # remove
@@ -69,9 +77,13 @@ class AnnotationView(object):
                 dist = np.sqrt((annotation[0] - x) ** 2 + (annotation[1] - y) ** 2)
                 if dist < self.maxdist:
                     self.annotations.remove(annotation)
+                    self.save()
                     self.redraw()
+
+    def save(self):
+        save_annotations(self.annotation_filename, self.annotations)
 
     def key_press(self, key):
         if key == ord('s'):
-            save_annotations(self.annotation_filename, self.annotations)
+            self.save()
         return key != ord('q') and key != 27
