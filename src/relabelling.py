@@ -60,6 +60,8 @@ class Relabeler():
                     new_title = new_title.rstrip(data1.old_label)
                 new_title += label
                 new_filename = os.path.join(TRACKS_RELABEL_PATH, new_title + extension)
+                if not os.path.exists(TRACKS_RELABEL_PATH):
+                    os.makedirs(TRACKS_RELABEL_PATH)
                 with open(new_filename, 'w') as outfile:
                     outfile.write(data1.header)
                     for line in lines.values():
