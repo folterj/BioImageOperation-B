@@ -16,7 +16,7 @@ class BioFeatures:
     def extract_filename_info(self):
         parts = self.filetitle.split()
         i = 0
-        if not parts[i].isnumeric():
+        if not parts[i][0].isnumeric():
             i += 1
         date = parts[i]
         time = parts[i + 1].replace('-', ':')
@@ -38,9 +38,12 @@ class BioFeatures:
 
     def calc(self):
         self.dtime = np.mean(np.diff(list(self.data['time'].values())))
-        frames = self.data['frame']
-        self.n = len(frames)
-        self.positions = {frame: (x, y) for frame, x, y in zip(frames.values(), self.data['x'].values(), self.data['y'].values())}
+        if 'frame' in self.data:
+            self.frames = self.data['frame'].values()
+        else:
+            self.frames = self.data['x'].keys()
+        self.n = len(self.frames)
+        self.positions = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())}
         length_major = self.data['length_major1']
         length_minor = self.data['length_minor1']
         self.meanl = np.mean(list(length_major.values()))
@@ -96,7 +99,6 @@ class BioFeatures:
         else:
             self.movement_time = {}
 
-        frames = self.data['frame']
         v_all = self.data['v_projection']
         v_angle_all = self.data['v_angle']
         length_major = self.data['length_major1']
@@ -104,7 +106,7 @@ class BioFeatures:
 
         lenl0 = self.meanl
         lenw0 = self.meanw
-        for frame, v, v_angle, lenl, lenw in zip(frames.values(), v_all.values(), v_angle_all.values(),
+        for frame, v, v_angle, lenl, lenw in zip(self.frames, v_all.values(), v_angle_all.values(),
                                                  length_major.values(), length_minor.values()):
             v_norm = v / self.meanl
             length_major_delta = abs(lenl - lenl0) / self.meanl

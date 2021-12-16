@@ -244,7 +244,7 @@ def main_old():
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
-    input_files = glob.glob(TRACKS_PATH2)
+    input_files = glob.glob(TRACKS_RELABEL_FILES)
 
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
 
@@ -323,14 +323,15 @@ if __name__ == '__main__':
     #draw_hist(BIO_TRACKING_FILE)
     #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
 
-    input_files = glob.glob(TRACKS_PATH2)
+    input_files = glob.glob(TRACKS_RELABEL_FILES)
 
     #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
 
+    print('Reading & processing input files')
     datas = [BioFeatures(filename) for filename in tqdm(input_files)]
 
+    print('Writing output files')
     header_standard = ['ID', 'Date', 'Time', 'Camera']
-
     header_v = header_standard + [str(x) for x in datas[0].v_hist[1]]
     header_vangle = header_standard + [str(x) for x in datas[0].vangle_hist[1]]
     with open(OUTPUT_PROFILE_V, 'w', newline='') as csvfile_v, \
@@ -372,3 +373,4 @@ if __name__ == '__main__':
             csvwriter.writerow(output)
 
     #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
+    print('Done')

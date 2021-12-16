@@ -41,3 +41,7 @@ def round_significants(a, significant_digits):
 
 def get_filetitle(filename):
     return os.path.splitext(os.path.basename(filename))[0]
+
+
+def get_filetitle_replace(filename):
+    return get_filetitle(filename).replace('.', '_')

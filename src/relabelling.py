@@ -1,91 +1,70 @@
 import glob
 import os.path
-import shutil
 import cv2 as cv
 import numpy as np
-from tqdm import tqdm
 
 from src.AnnotationView import AnnotationView
 from src.BioData import BioData
 from src.file.annotations import load_annotations
+from src.file.bio import import_tracks_by_frame
 from src.parameters import *
-from src.util import get_filetitle
+from src.util import get_filetitle, get_filetitle_replace
 from src.video import video_info, annotate_videos
-
-
-def annotate():
-    image = cv.imread(LABEL_ANNOTATION_IMAGE)
-    annotator = AnnotationView(image, LABEL_ANNOTATION_FILENAME)
-    annotator.show_loop()
-    annotator.close()
 
 
 class Relabeler():
     def __init__(self, annotation_filename):
         self.annotations = load_annotations(annotation_filename)
-        self.datas = []
-        self.lengths = {}
-        self.length = 0
 
     def process_all(self, data_files, video_files):
-        print('Scanning video files')
-        for video_file in tqdm(video_files):
-            _, _, nframes, fps = video_info(video_file)
-            title = get_filetitle(video_file).replace('.', '_')
-            self.lengths[title] = nframes
-            self.length += nframes
+        for video_file in video_files:
+            video_title = get_filetitle_replace(video_file)
+            print('Video:', video_title)
+            _, _, nframes, _ = video_info(video_file)
+            data_files1 = [data_file for data_file in data_files if video_title in data_file]
+            self.process(data_files1, video_title, nframes)
 
-        print('Reading labels')
+    def process(self, data_files, video_title, total_frames):
+        # Reading labels
         datas = []
-        for data_file in tqdm(data_files):
-            start = self.find_start(data_file)
-            data = BioData(data_file, start)
+        for data_file in data_files:
+            data = BioData(data_file, video_title)
             pref_label, pref_label_dist = self.get_best_label(data)
             if pref_label is not None:
                 data.pref_label, data.pref_label_dist = pref_label, pref_label_dist
                 datas.append(data)
 
-        print('Selecting labels')
+        # Selecting labels
         for x, y, label in self.annotations:
             datas1 = [data for data in datas if data.pref_label == label]
-            datas1.sort(key=lambda data: (data.start, data.pref_label_dist))
-            total_coverage = 0
-            coverage = -1
+            all_frames = []
             for data in datas1:
-                if data.start > coverage:
-                    self.datas.append(data)
-                    coverage = data.end
-                    total_coverage += data.length
-            print(f'Label: {label} Coverage: {total_coverage / self.length * 100:0.1f}%')
+                all_frames.extend(data.frames)
+            all_frames = sorted(set(all_frames))
+            datas1.sort(key=lambda data: data.pref_label_dist)
+            lines = {}
+            total_coverage = 0
+            for frame in all_frames:
+                for data in datas1:
+                    if frame in data.frames:
+                        total_coverage += 1
+                        lines[frame] = data.lines[frame]
+                        break
 
-        print('Storing new labels')
-        # delete all files
-        [os.remove(file) for file in glob.glob(TRACKS_RELABEL_PATH + '*')]
-        for data in tqdm(self.datas):
-            filename = data.filename
-            extension = os.path.splitext(filename)[1]
-            new_title = data.old_title
-            if new_title.endswith(data.old_label):
-                new_title = new_title.rstrip(data.old_label)
-            new_title += data.pref_label
-            new_filename = os.path.join(TRACKS_RELABEL_PATH, new_title + extension)
-            if not os.path.exists(new_filename):
-                shutil.copy(filename, new_filename)
-            else:
-                with open(new_filename, 'a') as outfile:
-                    with open(filename) as infile:
-                        next(infile)    # skip header
-                        for line in infile:
-                            outfile.write(line)
-        print('Done')
-
-    def find_start(self, data_file):
-        start = 0
-        for title in self.lengths:
-            if title in data_file:
-                return start
-            start += self.lengths[title]
-        return 0
+            if len(lines) > 0:
+                data1 = datas1[0]
+                filename = data1.filename
+                extension = os.path.splitext(filename)[1]
+                new_title = data1.old_title
+                if new_title.endswith(data1.old_label):
+                    new_title = new_title.rstrip(data1.old_label)
+                new_title += label
+                new_filename = os.path.join(TRACKS_RELABEL_PATH, new_title + extension)
+                with open(new_filename, 'w') as outfile:
+                    outfile.write(data1.header)
+                    for line in lines.values():
+                        outfile.write(line)
+            print(f'Label: {label} Coverage: {total_coverage / total_frames * 100:0.1f}%')
 
     def get_best_label_from_file(self, filename):
         data = BioData(filename)
@@ -110,6 +89,29 @@ class Relabeler():
         return label, mindist
 
 
+def annotate():
+    image = cv.imread(LABEL_ANNOTATION_IMAGE)
+    annotator = AnnotationView(image, LABEL_ANNOTATION_FILENAME)
+    annotator.show_loop()
+    annotator.close()
+
+
+def annotate_merge_videos(input_files, video_files, video_output):
+    print('Reading relabelled data')
+    all_datas = {}
+    for video_file in video_files:
+        video_datas = {}
+        video_title = get_filetitle_replace(video_file)
+        for filename in input_files:
+            if video_title in filename:
+                title = get_filetitle(filename)
+                label = title.rsplit('_')[-1]
+                video_datas[label] = import_tracks_by_frame(filename)
+        all_datas[video_title] = video_datas
+    print('Creating annotated video')
+    annotate_videos(video_files, video_output, all_datas, frame_inerval=100)
+
+
 if __name__ == '__main__':
     if not os.path.exists(LABEL_ANNOTATION_FILENAME):
         annotate()
@@ -118,5 +120,6 @@ if __name__ == '__main__':
     input_files = sorted(glob.glob(TRACKS_PATH))
     video_files = sorted(glob.glob(VIDEOS_PATH))
     relabeler.process_all(input_files, video_files)
-    print('Creating annotated video')
-    annotate_videos(video_files, VIDEOS_OUTPUT, relabeler.datas, outratio=0.01)
+
+    relabelled_files = sorted(glob.glob(TRACKS_RELABEL_FILES))
+    annotate_merge_videos(relabelled_files, video_files, VIDEOS_OUTPUT)

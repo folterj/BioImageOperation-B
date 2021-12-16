@@ -1,14 +1,16 @@
 import cv2 as cv
 from tqdm import tqdm
 
+from src.util import get_filetitle_replace
 
-def annotate_videos(video_infiles, video_outfile, datas, outratio=1):
+
+def annotate_videos(video_infiles, video_outfile, datas, frame_inerval=1):
     width, height, nframes, fps = video_info(video_infiles[0])
-    interval = int(round(1 / outratio))
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
 
-    total_framei = 0
     for video_infile in tqdm(video_infiles):
+        title = get_filetitle_replace(video_infile)
+        video_datas = datas[title]
         vidcap = cv.VideoCapture(video_infile)
         framei = 0
         ok = vidcap.isOpened()
@@ -17,14 +19,13 @@ def annotate_videos(video_infiles, video_outfile, datas, outratio=1):
             if ok:
                 ok, video_frame = vidcap.read()
                 if ok:
-                    if framei % interval == 0:
-                        for data in datas:
-                            if data.start <= total_framei <= data.end and framei in data.frames:
-                                position = (int(round(data.x[framei])), int(round(data.y[framei])))
-                                draw_annotation(video_frame, data.pref_label, position)
+                    if framei % frame_inerval == 0:
+                        for label, data in video_datas.items():
+                            if framei in data['x']:
+                                position = (int(round(data['x'][framei])), int(round(data['y'][framei])))
+                                draw_annotation(video_frame, label, position)
                         vidwriter.write(video_frame)
             framei += 1
-            total_framei += 1
         vidcap.release()
     vidwriter.release()
 
