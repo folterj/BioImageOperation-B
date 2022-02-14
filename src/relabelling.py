@@ -16,15 +16,15 @@ class Relabeler():
     def __init__(self, annotation_filename):
         self.annotations = load_annotations(annotation_filename)
 
-    def process_all(self, data_files, video_files):
+    def process_all(self, data_files, tracks_relabel_dir, video_files):
         for video_file in video_files:
             video_title = get_filetitle_replace(video_file)
             print('Video:', video_title)
             _, _, nframes, _ = video_info(video_file)
             data_files1 = [data_file for data_file in data_files if video_title in data_file]
-            self.process(data_files1, video_title, nframes)
+            self.process(data_files1, tracks_relabel_dir, video_title, nframes)
 
-    def process(self, data_files, video_title, total_frames):
+    def process(self, data_files, tracks_relabel_dir, video_title, total_frames):
         # Reading labels
         datas = []
         for data_file in data_files:
@@ -59,9 +59,9 @@ class Relabeler():
                 if new_title.endswith(data1.old_label):
                     new_title = new_title.rstrip(data1.old_label)
                 new_title += label
-                new_filename = os.path.join(TRACKS_RELABEL_PATH, new_title + extension)
-                if not os.path.exists(TRACKS_RELABEL_PATH):
-                    os.makedirs(TRACKS_RELABEL_PATH)
+                new_filename = os.path.join(tracks_relabel_dir, new_title + extension)
+                if not os.path.exists(tracks_relabel_dir):
+                    os.makedirs(tracks_relabel_dir)
                 with open(new_filename, 'w') as outfile:
                     outfile.write(data1.header)
                     for line in lines.values():
@@ -91,9 +91,9 @@ class Relabeler():
         return label, mindist
 
 
-def annotate():
-    image = cv.imread(LABEL_ANNOTATION_IMAGE)
-    annotator = AnnotationView(image, LABEL_ANNOTATION_FILENAME)
+def annotate(annotation_image_filename, annotation_filename):
+    image = cv.imread(annotation_image_filename)
+    annotator = AnnotationView(image, annotation_filename)
     annotator.show_loop()
     annotator.close()
 
@@ -114,14 +114,38 @@ def annotate_merge_videos(input_files, video_files, video_output):
     annotate_videos(video_files, video_output, all_datas, frame_inerval=100)
 
 
+def relabel(params):
+    base_dir = params['base_dir']
+    annotation_filename = os.path.join(base_dir, params['label_annotation_filename'])
+    annotation_image_filename = os.path.join(base_dir, params['label_annotation_image'])
+    tracks_path = os.path.join(base_dir, params['tracks_path'])
+    if tracks_path[-1] == '/':
+        tracks_path = os.path.join(tracks_path, '*')
+    tracks_relabel_dir = os.path.join(base_dir, params['tracks_relabel_dir'])
+
+    video_input_path = os.path.join(base_dir, params['video_input_path'])
+    video_output_path = os.path.join(base_dir, params['video_output_path'])
+
+    if not os.path.exists(annotation_filename):
+        annotate(annotation_image_filename, annotation_filename)
+
+    relabeler = Relabeler(annotation_filename)
+    input_files = sorted(glob.glob(tracks_path))
+    video_files = sorted(glob.glob(video_input_path))
+    relabeler.process_all(input_files, tracks_relabel_dir, video_files)
+
+    relabelled_files = sorted(glob.glob(tracks_relabel_dir))
+    annotate_merge_videos(relabelled_files, video_files, video_output_path)
+
+
 if __name__ == '__main__':
     if not os.path.exists(LABEL_ANNOTATION_FILENAME):
-        annotate()
+        annotate(LABEL_ANNOTATION_FILENAME, LABEL_ANNOTATION_IMAGE)
 
     relabeler = Relabeler(LABEL_ANNOTATION_FILENAME)
     input_files = sorted(glob.glob(TRACKS_PATH))
     video_files = sorted(glob.glob(VIDEOS_PATH))
-    relabeler.process_all(input_files, video_files)
+    relabeler.process_all(input_files, TRACKS_RELABEL_FILES, video_files)
 
     relabelled_files = sorted(glob.glob(TRACKS_RELABEL_FILES))
     annotate_merge_videos(relabelled_files, video_files, VIDEOS_OUTPUT)

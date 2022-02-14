@@ -1,3 +1,4 @@
+DEFAULT_PARAMETER_FILENAME = 'resources/params.yml'
 
 BIO_TRACKING_PATH = '../../flylab-behavioural/resources/bio/'
 BIO_TRACKING_FILE = BIO_TRACKING_PATH + 'tracking_5.csv'

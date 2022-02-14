@@ -1,0 +1,12 @@
+base_dir: D:/Video/Living_Earth/Spider Activity/Activity Tracking July 2021/Cam 1/
+tracks_path: tracks/*.csv
+tracks_relabel_dir: tracks_relabel/
+label_annotation_image: back.png
+label_annotation_filename: annotations.csv
+
+profile_v_output_filename: profile_v.csv
+profile_vangle_output_filename: profile_vangle.csv
+dataframe_output_filename: activity_dataframe.csv
+
+video_input_path: '*.avi.mp4'
+video_output_path: annotated.mp4
