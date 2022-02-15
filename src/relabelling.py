@@ -5,30 +5,32 @@ import numpy as np
 
 from src.AnnotationView import AnnotationView
 from src.BioData import BioData
+from src.VideoInfo import VideoInfos
 from src.file.annotations import load_annotations
 from src.file.bio import import_tracks_by_frame
-from src.parameters import *
 from src.util import get_filetitle, get_filetitle_replace
 from src.video import video_info, annotate_videos
 
 
-class Relabeler():
-    def __init__(self, annotation_filename):
+class Relabeller():
+    def __init__(self, annotation_filename, max_move_distance):
+        self.max_move_distance = max_move_distance
         self.annotations = load_annotations(annotation_filename)
 
     def process_all(self, data_files, tracks_relabel_dir, video_files):
-        for video_file in video_files:
-            video_title = get_filetitle_replace(video_file)
-            print('Video:', video_title)
-            _, _, nframes, _ = video_info(video_file)
-            data_files1 = [data_file for data_file in data_files if video_title in data_file]
-            self.process(data_files1, tracks_relabel_dir, video_title, nframes)
+        video_infos = VideoInfos(video_files)
+        data_sets = list(set([os.path.basename(data_file).rsplit('_', 1)[0] for data_file in data_files]))
+        for data_set in data_sets:
+            print('Data set:', data_set)
+            data_files1 = [data_file for data_file in data_files if data_set in data_file]
+            video_info = video_infos.find_match(data_set)
+            self.process(data_files1, tracks_relabel_dir, video_info)
 
-    def process(self, data_files, tracks_relabel_dir, video_title, total_frames):
+    def process(self, data_files, tracks_relabel_dir, video_info):
         # Reading labels
         datas = []
         for data_file in data_files:
-            data = BioData(data_file, video_title)
+            data = BioData(data_file)
             pref_label, pref_label_dist = self.get_best_label(data)
             if pref_label is not None:
                 data.pref_label, data.pref_label_dist = pref_label, pref_label_dist
@@ -66,7 +68,10 @@ class Relabeler():
                     outfile.write(data1.header)
                     for line in lines.values():
                         outfile.write(line)
-            print(f'Label: {label} Coverage: {total_coverage / total_frames * 100:0.1f}%')
+            if video_info is not None:
+                print(f'Label: {label} Coverage: {total_coverage / video_info.total_frames * 100:0.1f}%')
+            else:
+                print(f'Label: {label} Coverage: {total_coverage} frames')
 
     def get_best_label_from_file(self, filename):
         data = BioData(filename)
@@ -85,15 +90,15 @@ class Relabeler():
             if dist < mindist or mindist < 0:
                 mindist = dist
                 label = annotation[2]
-        if mindist > MAX_MOVE_DISTANCE:
+        if mindist > self.max_move_distance:
             # closest is too far away; disqualify
             return None, None
         return label, mindist
 
 
-def annotate(annotation_image_filename, annotation_filename):
+def annotate(annotation_image_filename, annotation_filename, max_annotation_distance):
     image = cv.imread(annotation_image_filename)
-    annotator = AnnotationView(image, annotation_filename)
+    annotator = AnnotationView(image, annotation_filename, max_annotation_distance)
     annotator.show_loop()
     annotator.close()
 
@@ -119,33 +124,29 @@ def relabel(params):
     annotation_filename = os.path.join(base_dir, params['label_annotation_filename'])
     annotation_image_filename = os.path.join(base_dir, params['label_annotation_image'])
     tracks_path = os.path.join(base_dir, params['tracks_path'])
-    if tracks_path[-1] == '/':
+    if os.path.isdir(tracks_path):
         tracks_path = os.path.join(tracks_path, '*')
     tracks_relabel_dir = os.path.join(base_dir, params['tracks_relabel_dir'])
+    video_input_path = os.path.join(base_dir, params['video_input_path'])
 
+    max_annotation_distance = params['max_annotation_distance']
+    max_move_distance = params['max_move_distance']
+
+    if not os.path.exists(annotation_filename):
+        annotate(annotation_image_filename, annotation_filename, max_annotation_distance)
+
+    relabeller = Relabeller(annotation_filename, max_move_distance)
+    input_files = sorted(glob.glob(tracks_path))
+    video_files = sorted(glob.glob(video_input_path))
+    relabeller.process_all(input_files, tracks_relabel_dir, video_files)
+
+
+def relabel_annotate_video(params):
+    base_dir = params['base_dir']
+    tracks_relabel_path = os.path.join(base_dir, params['tracks_relabel_dir'], '*')
     video_input_path = os.path.join(base_dir, params['video_input_path'])
     video_output_path = os.path.join(base_dir, params['video_output_path'])
 
-    if not os.path.exists(annotation_filename):
-        annotate(annotation_image_filename, annotation_filename)
-
-    relabeler = Relabeler(annotation_filename)
-    input_files = sorted(glob.glob(tracks_path))
+    input_files = sorted(glob.glob(tracks_relabel_path))
     video_files = sorted(glob.glob(video_input_path))
-    relabeler.process_all(input_files, tracks_relabel_dir, video_files)
-
-    relabelled_files = sorted(glob.glob(tracks_relabel_dir))
-    annotate_merge_videos(relabelled_files, video_files, video_output_path)
-
-
-if __name__ == '__main__':
-    if not os.path.exists(LABEL_ANNOTATION_FILENAME):
-        annotate(LABEL_ANNOTATION_FILENAME, LABEL_ANNOTATION_IMAGE)
-
-    relabeler = Relabeler(LABEL_ANNOTATION_FILENAME)
-    input_files = sorted(glob.glob(TRACKS_PATH))
-    video_files = sorted(glob.glob(VIDEOS_PATH))
-    relabeler.process_all(input_files, TRACKS_RELABEL_FILES, video_files)
-
-    relabelled_files = sorted(glob.glob(TRACKS_RELABEL_FILES))
-    annotate_merge_videos(relabelled_files, video_files, VIDEOS_OUTPUT)
+    annotate_merge_videos(input_files, video_files, video_output_path)

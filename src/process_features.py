@@ -7,12 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from src.VideoInfo import VideoInfos
 from src.file.bio import import_tracks_by_frame
 from src.BioFeatures import BioFeatures
-from src.file.plain_csv import export_csv
-from src.parameters import *
-from src.util import round_significants, get_filetitle
-from src.video import annotate_video
+from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM, PLOT_DPI
+from src.util import round_significants, get_filetitle, list_to_str
 
 
 def get_norm_data(filename):
@@ -94,7 +93,7 @@ def extract_movement(filename, output_type='movement_type'):
 
 
 def get_hist_data(data, range):
-    hist, bin_edges = np.histogram(data, bins=NBINS, range=(0, range))
+    hist, bin_edges = np.histogram(data, bins=PROFILE_HIST_BINS, range=(0, range))
     return hist / len(data)
 
 
@@ -103,17 +102,17 @@ def get_loghist_data(data, power_min, power_max, ax=None, title="", color="#1f77
     n = len(data)
 
     #bin_edges = [10 ** ((i - NBINS / 2) * factor) for i in range(NBINS + 1)]
-    bin_edges = np.logspace(power_min, power_max, NBINS + 1)
+    bin_edges = np.logspace(power_min, power_max, PROFILE_HIST_BINS + 1)
 
     # manual histogram, ensuring values at (positive) histogram edges are counted
-    hist = np.zeros(NBINS)
-    factor = (power_max - power_min) / NBINS
+    hist = np.zeros(PROFILE_HIST_BINS)
+    factor = (power_max - power_min) / PROFILE_HIST_BINS
     for x in data:
         if x != 0:
             bin = (np.log10(abs(x)) - power_min) / factor
             if bin >= 0:
                 # discard low values
-                bin = np.clip(int(bin), 0, NBINS)
+                bin = np.clip(int(bin), 0, PROFILE_HIST_BINS)
                 hist[bin] += 1
     hist /= n
 
@@ -237,95 +236,16 @@ def extract_info(input_file):
     return [id, date, time, camera]
 
 
-def to_str(lst):
-    return [str(x) for x in lst]
-
-
-def main_old():
-    #draw_hist(BIO_TRACKING_FILE)
-    #draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
-
-    input_files = glob.glob(TRACKS_RELABEL_FILES)
-
-    #v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
-
-    datas = []
-    v_hists = []
-    vangle_hists = []
-    v_percentiles = []
-    for filename in input_files:
-        datas.append(BioFeatures(filename))
-        v_hist, vangle_hist = get_v_hists(filename)
-        v_percentile = get_v_percentiles(filename)
-        v_hists.append(v_hist)
-        vangle_hists.append(vangle_hist)
-        v_percentiles.append(v_percentile)
-
-    header_standard = ['ID', 'Date', 'Time', 'Camera']
-
-    header_v = header_standard + [str(x) for x in v_hists[0][1]]
-    header_vangle = header_standard + [str(x) for x in vangle_hists[0][1]]
-    with open(OUTPUT_PROFILE_V, 'w', newline='') as csvfile_v, \
-         open(OUTPUT_PROFILE_VANGLE, 'w', newline='') as csvfile_vangle:
-
-        csvwriter_v = csv.writer(csvfile_v)
-        csvwriter_vangle = csv.writer(csvfile_vangle)
-
-        csvwriter_v.writerow(header_v)
-        csvwriter_vangle.writerow(header_vangle)
-
-        for input_file, v_hist, vangle_hist in zip(input_files, v_hists, vangle_hists):
-            filetitle = get_filetitle(input_file).replace("_", " ")
-            print(f'v {filetitle}')
-            print_hist_values(v_hist)
-            print(f'v_angle {filetitle}')
-            print_hist_values(vangle_hist)
-            print()
-
-            info = extract_info(input_file)
-            csvwriter_v.writerow(to_str(info) + to_str(v_hist[0]))
-            csvwriter_vangle.writerow(to_str(info) + to_str(vangle_hist[0]))
-
-    #frames, positions, headers, data, movement_time = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
-    #export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
-    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, [positions], [headers], [data])
-
-    all_positions = []
-    all_data = []
-    all_headers = []
-    header = header_standard + ['Appendage Movement [s]', 'Appendage Movement [%]',
-                                'Body Movement [s]', 'Body Movement [%]',
-                                'Speed 25 Percentile', 'Speed 50 Percentile', 'Speed 75 Percentile']
-
-    with open(OUTPUT_DATAFRAME, 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(header)
-        for input_file, v_percentile in zip(input_files, v_percentiles):
-            filetitle = get_filetitle(input_file).replace("_", " ")
-            print(filetitle)
-
-            info = extract_info(input_file)
-            frames, positions, headers, data, movement_time = extract_movement(input_file, output_type='activity_type')
-
-            #export_csv(input_file, output_file, headers, data)
-            csvwriter_v.writerow(to_str(info) + to_str(v_percentile))
-
-            headers1 = [headers[-1]]
-            data1 = [data[-1]]
-            all_positions.append(positions)
-            all_headers.append(headers1)
-            all_data.append(data1)
-            print()
-
-    #annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
-
-
 def extract_activity_features(params):
     base_dir = params['base_dir']
     input_files = glob.glob(os.path.join(base_dir, params['tracks_relabel_dir'], '*'))
+    video_input_path = os.path.join(base_dir, params['video_input_path'])
+    video_files = sorted(glob.glob(video_input_path))
+
     profile_v_output_filename = os.path.join(base_dir, params['profile_v_output_filename'])
     profile_vangle_output_filename = os.path.join(base_dir, params['profile_vangle_output_filename'])
     dataframe_output_filename = os.path.join(base_dir, params['dataframe_output_filename'])
+    video_infos = VideoInfos(video_files)
 
     print('Reading & processing input files')
     datas = [BioFeatures(filename) for filename in tqdm(input_files)]
@@ -344,8 +264,8 @@ def extract_activity_features(params):
         csvwriter_vangle.writerow(header_vangle)
 
         for data in datas:
-            csvwriter_v.writerow(to_str(data.info) + to_str(data.v_hist[0]))
-            csvwriter_vangle.writerow(to_str(data.info) + to_str(data.vangle_hist[0]))
+            csvwriter_v.writerow(list_to_str(data.info) + list_to_str(data.v_hist[0]))
+            csvwriter_vangle.writerow(list_to_str(data.info) + list_to_str(data.vangle_hist[0]))
 
     header = header_standard + ['Appendage Movement [s]', 'Appendage Movement [%]',
                                 'Body Movement [s]', 'Body Movement [%]',
@@ -355,70 +275,14 @@ def extract_activity_features(params):
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(header)
         for data in datas:
+            video_info = video_infos.find_match(data.filetitle)
             data.classify_movement(output_type='activity_type')
             output = data.info
             output.append(data.get_movement_time('appendages'))
-            output.append(data.get_movement_fraction('appendages'))
+            output.append(data.get_movement_fraction('appendages', video_info.total_frames))
             output.append(data.get_movement_time('moving'))
-            output.append(data.get_movement_fraction('moving'))
+            output.append(data.get_movement_fraction('moving', video_info.total_frames))
             output.extend(data.v_percentiles)
             csvwriter.writerow(output)
 
-    print('Done')
-
-
-if __name__ == '__main__':
-    # draw_hist(BIO_TRACKING_FILE)
-    # draw_hist(LIVING_EARTH_PATH + "tracking_GP029287_08016_DUSK_MILLIPEDE_LARGE.csv")
-
-    input_files = glob.glob(TRACKS_RELABEL_FILES)
-
-    # v_hists, vangle_hists = draw_hists(glob.glob(LIVING_EARTH_INFILE), show_pairs=False, show_grid=False)
-
-    print('Reading & processing input files')
-    datas = [BioFeatures(filename) for filename in tqdm(input_files)]
-
-    print('Writing output files')
-    header_standard = ['ID', 'Date', 'Time', 'Camera']
-    header_v = header_standard + [str(x) for x in datas[0].v_hist[1]]
-    header_vangle = header_standard + [str(x) for x in datas[0].vangle_hist[1]]
-    with open(OUTPUT_PROFILE_V, 'w', newline='') as csvfile_v, \
-            open(OUTPUT_PROFILE_VANGLE, 'w', newline='') as csvfile_vangle:
-
-        csvwriter_v = csv.writer(csvfile_v)
-        csvwriter_vangle = csv.writer(csvfile_vangle)
-
-        csvwriter_v.writerow(header_v)
-        csvwriter_vangle.writerow(header_vangle)
-
-        for data in datas:
-            csvwriter_v.writerow(to_str(data.info) + to_str(data.v_hist[0]))
-            csvwriter_vangle.writerow(to_str(data.info) + to_str(data.vangle_hist[0]))
-
-    # frames, positions, headers, data, movement_time = extract_movement(LIVING_EARTH_INFILE, type='movement_type')
-    # export_csv(LIVING_EARTH_INFILE, LIVING_EARTH_OUTFILE, headers, data)
-    # annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, [positions], [headers], [data])
-
-    all_positions = []
-    all_data = []
-    all_headers = []
-    header = header_standard + ['Appendage Movement [s]', 'Appendage Movement [%]',
-                                'Body Movement [s]', 'Body Movement [%]',
-                                'Speed 25 Percentile', 'Speed 50 Percentile', 'Speed 75 Percentile']
-
-    with open(OUTPUT_DATAFRAME, 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(header)
-        for data in datas:
-            data.classify_movement(output_type='activity_type')
-            output = data.info
-            output.append(data.get_movement_time('appendages'))
-            output.append(data.get_movement_fraction('appendages'))
-            output.append(data.get_movement_time('moving'))
-            output.append(data.get_movement_fraction('moving'))
-            output.extend(data.v_percentiles)
-            # export_csv(input_file, output_file, headers, data)
-            csvwriter.writerow(output)
-
-    # annotate_video(LIVING_EARTH_VIDEO_INFILE, LIVING_EARTH_VIDEO_OUTFILE, frames, all_positions, all_headers, all_data)
     print('Done')

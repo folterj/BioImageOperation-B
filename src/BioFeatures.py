@@ -1,20 +1,20 @@
 import numpy as np
 
 from src.file.bio import import_tracks_by_frame
-from src.parameters import NBINS, VANGLE_NORM
+from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
 from src.util import get_filetitle
 
 
 class BioFeatures:
     def __init__(self, filename):
         self.filename = filename
-        self.filetitle = get_filetitle(filename).replace("_", " ")
+        self.filetitle = get_filetitle(filename)
         self.data = import_tracks_by_frame(filename)
         self.extract_filename_info()
         self.calc()
 
     def extract_filename_info(self):
-        parts = self.filetitle.split()
+        parts = self.filetitle.split('_')
         i = 0
         if not parts[i][0].isnumeric():
             i += 1
@@ -57,23 +57,23 @@ class BioFeatures:
         self.vangle_hist = self.calc_loghist(self.angle_norm, -3, 1)
 
     def calc_hist(self, data, range):
-        hist, bin_edges = np.histogram(data, bins=NBINS, range=(0, range))
+        hist, bin_edges = np.histogram(data, bins=PROFILE_HIST_BINS, range=(0, range))
         return hist / len(data)
 
     def calc_loghist(self, data, power_min, power_max):
         # assume symtric scale - middle bin is 10^0 = 1
         #bin_edges = [10 ** ((i - NBINS / 2) * factor) for i in range(NBINS + 1)]
-        bin_edges = np.logspace(power_min, power_max, NBINS + 1)
+        bin_edges = np.logspace(power_min, power_max, PROFILE_HIST_BINS + 1)
 
         # manual histogram, ensuring values at (positive) histogram edges are counted
-        hist = np.zeros(NBINS)
-        factor = (power_max - power_min) / NBINS
+        hist = np.zeros(PROFILE_HIST_BINS)
+        factor = (power_max - power_min) / PROFILE_HIST_BINS
         for x in data:
             if x != 0:
                 bin = (np.log10(abs(x)) - power_min) / factor
                 if bin >= 0:
                     # discard low values
-                    bin = np.clip(int(bin), 0, NBINS)
+                    bin = np.clip(int(bin), 0, PROFILE_HIST_BINS)
                     hist[bin] += 1
         hist /= self.n
 
@@ -142,11 +142,13 @@ class BioFeatures:
     def get_movement_time(self, type):
         return self.movement_time[type] * self.dtime
 
-    def get_movement_fraction(self, type):
-        return self.movement_time[type] / self.n
+    def get_movement_fraction(self, type, total_frames):
+        if total_frames is not None and total_frames != 0:
+            return self.movement_time[type] / total_frames
+        return self.movement_time[type]
 
     def get_movement_times(self):
         return [self.get_movement_time(type) for type in self.movement_time]
 
-    def get_movement_fractions(self):
-        return [self.get_movement_fraction(type) for type in self.movement_time]
+    def get_movement_fractions(self, total_frames):
+        return [self.get_movement_fraction(type, total_frames) for type in self.movement_time]

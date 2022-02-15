@@ -1,7 +1,7 @@
 import argparse
 import yaml
 
-from src.parameters import *
+from src.parameters import DEFAULT_PARAMETER_FILENAME
 from src.process_features import extract_activity_features
 
 

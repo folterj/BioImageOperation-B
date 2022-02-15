@@ -4,14 +4,13 @@ import tkinter as tk
 from tkinter import simpledialog
 
 from src.file.annotations import load_annotations, save_annotations
-from src.parameters import *
 
 
 class AnnotationView(object):
-    def __init__(self, image, annotation_filename, maxdist=MAX_ANNOTATION_DISTANCE, window_name='CvView'):
+    def __init__(self, image, annotation_filename, max_annotation_distance, window_name='CvView'):
         self.image = image
         self.annotation_filename = annotation_filename
-        self.maxdist = maxdist
+        self.max_annotation_distance = max_annotation_distance
         self.window_name = window_name
         self.annotations = load_annotations(self.annotation_filename)
 
@@ -75,7 +74,7 @@ class AnnotationView(object):
             # remove
             for annotation in self.annotations:
                 dist = np.sqrt((annotation[0] - x) ** 2 + (annotation[1] - y) ** 2)
-                if dist < self.maxdist:
+                if dist < self.max_annotation_distance:
                     self.annotations.remove(annotation)
                     self.save()
                     self.redraw()

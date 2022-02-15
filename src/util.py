@@ -5,6 +5,10 @@ import numpy as np
 import cv2 as cv
 
 
+def list_to_str(lst):
+    return [str(x) for x in lst]
+
+
 def pairwise(iterable):
     a = iter(iterable)
     return zip(a, a)

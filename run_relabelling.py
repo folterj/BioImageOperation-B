@@ -1,8 +1,8 @@
 import argparse
 import yaml
 
-from src.parameters import *
-from src.relabelling import relabel
+from src.parameters import DEFAULT_PARAMETER_FILENAME
+from src.relabelling import relabel, relabel_annotate_video
 
 
 if __name__ == '__main__':
@@ -15,3 +15,4 @@ if __name__ == '__main__':
         params = yaml.safe_load(file)
 
     relabel(params)
+    relabel_annotate_video(params)
