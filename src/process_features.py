@@ -11,7 +11,7 @@ from src.VideoInfo import VideoInfos
 from src.file.bio import import_tracks_by_frame
 from src.BioFeatures import BioFeatures
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM, PLOT_DPI
-from src.util import round_significants, get_filetitle, list_to_str
+from src.util import round_significants, get_filetitle, list_to_str, get_bio_base_name
 
 
 def get_norm_data(filename):
@@ -275,13 +275,17 @@ def extract_activity_features(params):
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(header)
         for data in datas:
-            video_info = video_infos.find_match(data.filetitle)
+            video_info = video_infos.find_match(get_bio_base_name(data.filetitle))
+            if video_info is not None:
+                total_frames = video_info.total_frames
+            else:
+                total_frames = None
             data.classify_movement(output_type='activity_type')
             output = data.info
             output.append(data.get_movement_time('appendages'))
-            output.append(data.get_movement_fraction('appendages', video_info.total_frames))
+            output.append(data.get_movement_fraction('appendages', total_frames))
             output.append(data.get_movement_time('moving'))
-            output.append(data.get_movement_fraction('moving', video_info.total_frames))
+            output.append(data.get_movement_fraction('moving', total_frames))
             output.extend(data.v_percentiles)
             csvwriter.writerow(output)
 

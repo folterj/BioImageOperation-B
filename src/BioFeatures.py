@@ -142,7 +142,7 @@ class BioFeatures:
     def get_movement_time(self, type):
         return self.movement_time[type] * self.dtime
 
-    def get_movement_fraction(self, type, total_frames):
+    def get_movement_fraction(self, type, total_frames=None):
         if total_frames is not None and total_frames != 0:
             return self.movement_time[type] / total_frames
         return self.movement_time[type]

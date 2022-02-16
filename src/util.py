@@ -49,3 +49,7 @@ def get_filetitle(filename):
 
 def get_filetitle_replace(filename):
     return get_filetitle(filename).replace('.', '_')
+
+
+def get_bio_base_name(filename):
+    return os.path.basename(filename).rsplit('_', 1)[0]

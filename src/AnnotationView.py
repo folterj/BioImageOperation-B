@@ -7,10 +7,10 @@ from src.file.annotations import load_annotations, save_annotations
 
 
 class AnnotationView(object):
-    def __init__(self, image, annotation_filename, max_annotation_distance, window_name='CvView'):
+    def __init__(self, image, annotation_filename, annotation_margin, window_name='CvView'):
         self.image = image
         self.annotation_filename = annotation_filename
-        self.max_annotation_distance = max_annotation_distance
+        self.annotation_margin = annotation_margin
         self.window_name = window_name
         self.annotations = load_annotations(self.annotation_filename)
 
@@ -74,7 +74,7 @@ class AnnotationView(object):
             # remove
             for annotation in self.annotations:
                 dist = np.sqrt((annotation[0] - x) ** 2 + (annotation[1] - y) ** 2)
-                if dist < self.max_annotation_distance:
+                if dist < self.annotation_margin:
                     self.annotations.remove(annotation)
                     self.save()
                     self.redraw()
