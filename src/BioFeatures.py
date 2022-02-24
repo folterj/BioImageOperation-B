@@ -15,14 +15,18 @@ class BioFeatures:
 
     def extract_filename_info(self):
         parts = self.filetitle.split('_')
+        id = parts[-1]
+        date = 0
+        time = 0
+        camera = 0
+
         i = 0
         if not parts[i][0].isnumeric():
             i += 1
-        date = parts[i]
-        time = parts[i + 1].replace('-', ':')
-        id = parts[-1]
+        if len(parts) > 2:
+            date = parts[i]
+            time = parts[i + 1].replace('-', ':')
 
-        camera = 0
         s = self.filename.lower().find('cam')
         if s >= 0:
             while s < len(self.filename) and not self.filename[s].isnumeric():

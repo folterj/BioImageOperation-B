@@ -290,3 +290,62 @@ def extract_activity_features(params):
             csvwriter.writerow(output)
 
     print('Done')
+
+
+def extract_response_features(params):
+    base_dir = params['base_dir']
+    input_files = glob.glob(os.path.join(base_dir, params['tracks_path']))
+    video_input_path = os.path.join(base_dir, params['video_input_path'])
+    video_files = sorted(glob.glob(video_input_path))
+
+    profile_v_output_filename = os.path.join(base_dir, params['profile_v_output_filename'])
+    profile_vangle_output_filename = os.path.join(base_dir, params['profile_vangle_output_filename'])
+    dataframe_output_filename = os.path.join(base_dir, params['dataframe_output_filename'])
+    video_infos = VideoInfos(video_files)
+
+    print('Reading & processing input files')
+    datas = [BioFeatures(filename) for filename in tqdm(input_files)]
+
+    print('Writing output files')
+    header_standard = ['ID', 'Date', 'Time', 'Camera']
+    header_v = header_standard + [str(x) for x in datas[0].v_hist[1]]
+    header_vangle = header_standard + [str(x) for x in datas[0].vangle_hist[1]]
+    with open(profile_v_output_filename, 'w', newline='') as csvfile_v, \
+         open(profile_vangle_output_filename, 'w', newline='') as csvfile_vangle:
+
+        csvwriter_v = csv.writer(csvfile_v)
+        csvwriter_vangle = csv.writer(csvfile_vangle)
+
+        csvwriter_v.writerow(header_v)
+        csvwriter_vangle.writerow(header_vangle)
+
+        for data in datas:
+            csvwriter_v.writerow(list_to_str(data.info) + list_to_str(data.v_hist[0]))
+            csvwriter_vangle.writerow(list_to_str(data.info) + list_to_str(data.vangle_hist[0]))
+
+    header = header_standard + ['Brownian [s]', 'Brownian [%]',
+                                'Levi [s]', 'Levi [%]',
+                                'Ballistic [s]', 'Ballistic [%]'
+                                'Speed 25 Percentile', 'Speed 50 Percentile', 'Speed 75 Percentile']
+
+    with open(dataframe_output_filename, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(header)
+        for data in datas:
+            video_info = video_infos.find_match(get_bio_base_name(data.filetitle))
+            if video_info is not None:
+                total_frames = video_info.total_frames
+            else:
+                total_frames = None
+            data.classify_movement(output_type='movement_type')
+            output = data.info
+            output.append(data.get_movement_time('brownian'))
+            output.append(data.get_movement_fraction('brownian', total_frames))
+            output.append(data.get_movement_time('levi'))
+            output.append(data.get_movement_fraction('levi', total_frames))
+            output.append(data.get_movement_time('ballistic'))
+            output.append(data.get_movement_fraction('ballistic', total_frames))
+            output.extend(data.v_percentiles)
+            csvwriter.writerow(output)
+
+    print('Done')

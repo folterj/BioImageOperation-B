@@ -1,11 +1,10 @@
 import argparse
 import yaml
 
-from src.relabelling import relabel, relabel_annotate_video
-
+from src.process_features import extract_response_features
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Relabelling")
+    parser = argparse.ArgumentParser("Extract response features")
     parser.add_argument('--params',
                         required=True,
                         help='The location of the parameters file')
@@ -13,5 +12,4 @@ if __name__ == '__main__':
     with open(args.params, 'r') as file:
         params = yaml.safe_load(file)
 
-    relabel(params)
-    relabel_annotate_video(params)
+    extract_response_features(params)
