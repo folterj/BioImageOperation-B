@@ -7,6 +7,32 @@ from src.BioFeatures import BioFeatures
 from src.util import list_to_str, get_bio_base_name, get_input_files
 
 
+def extract_features_all(datas, feature_type, features):
+    data_sets = list(set([get_bio_base_name(data.filename) for data in datas]))
+    for data_set in data_sets:
+        datas1 = [data for data in datas if data_set in data.filename]
+        extract_features(datas1, feature_type, features)
+
+
+def extract_features(datas, feature_type, features):
+    log_lost = {}
+    frames = set()
+    for data in datas:
+        frames.update(data.frames)
+        data.active = None
+    frames = sorted(frames)
+    for frame in frames:
+        for datai, data in enumerate(datas):
+            if frame in data.frames:
+                data.active = True
+            elif data.active:
+                log_lost[datai] = frame * data.dtime
+                data.active = False
+
+    log_lost = sorted(log_lost.items(), key=lambda item: item[1])
+    return log_lost
+
+
 def run(general_params, params):
     base_dir = general_params['base_dir']
 
@@ -21,11 +47,12 @@ def run(general_params, params):
     for feature_set0 in params:
         feature_type = next(iter(feature_set0))
         feature_set = feature_set0[feature_type]
+        features = feature_set['features']
         print(f'Extracting {feature_type}')
 
         if feature_type == 'profiles':
             [data.calc_profiles() for data in tqdm(datas)]
-            for feature in feature_set['features']:
+            for feature in features:
                 output_filename = os.path.join(base_dir, feature_set['output'].format_map({'feature': feature}))
                 header = header_start + list_to_str(datas[0].profiles[feature][1])
                 with open(output_filename, 'w', newline='') as csvfile:
@@ -38,7 +65,7 @@ def run(general_params, params):
         elif feature_type == 'features':
             output_filename = os.path.join(base_dir, feature_set['output'])
             header = list(header_start)
-            for feature in feature_set['features']:
+            for feature in features:
                 header += list(datas[0].features[feature].keys())
 
             with open(output_filename, 'w', newline='') as csvfile:
@@ -49,7 +76,7 @@ def run(general_params, params):
                     csvwriter.writerow(row)
 
         elif feature_type == 'activity':
-            for feature in feature_set['features']:
+            for feature in features:
                 [data.classify_activity(output_type=feature) for data in tqdm(datas)]
                 output_filename = os.path.join(base_dir, feature_set['output'].format_map({'feature': feature}))
 
@@ -74,3 +101,14 @@ def run(general_params, params):
                             row.append(data.get_activity_time(activity_type))
                             row.append(data.get_activity_fraction(activity_type, total_frames))
                         csvwriter.writerow(row)
+
+        elif feature_type == 'events':
+            extract_features_all(datas, feature_type, features)
+            output_filename = os.path.join(base_dir, feature_set['output'])
+            header = list(header_start) + list(features)
+            with open(output_filename, 'w', newline='') as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerow(header)
+
+                for feature in features:
+                    pass

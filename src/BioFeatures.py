@@ -45,9 +45,9 @@ class BioFeatures:
     def calc_basic(self):
         self.dtime = np.mean(np.diff(list(self.data['time'].values())))
         if 'frame' in self.data:
-            self.frames = self.data['frame'].values()
+            self.frames = list(self.data['frame'].values())
         else:
-            self.frames = self.data['x'].keys()
+            self.frames = list(self.data['x'].keys())
         self.n = len(self.frames)
         self.positions = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())}
         length_major = self.data['length_major1']

@@ -1,4 +1,7 @@
+import glob
 import os.path
+import shutil
+
 import cv2 as cv
 import numpy as np
 
@@ -31,15 +34,14 @@ class Relabeller():
 
     def relabel_sort(self, data_files, tracks_relabel_dir, video_info):
         sort_key = self.method.split()[-1]
-        datas = []
-        for data_file in data_files:
-            data = BioFeatures(data_file)
-            value = data.get_mean_feature(sort_key)
-            datas.append((value, data))
-        datas.sort(reverse=True)
+        datas = [BioFeatures(data_file) for data_file in data_files]
+        values = [data.get_mean_feature(sort_key) for data in datas]
+        datas = [data for value, data in sorted(zip(values, datas), reverse=True)]
         for new_label, data in enumerate(datas):
-            pass
-        # copy / rename files using
+            data.pref_label = new_label
+            filename, extension = os.path.splitext(os.path.basename(data.filename))
+            new_filename = os.path.join(tracks_relabel_dir, filename.rsplit('_', 1)[0] + str(new_label) + extension)
+            shutil.copy2(data.filename, new_filename)
 
     def relabel_annotation(self, data_files, tracks_relabel_dir, video_info):
         # Reading labels
@@ -77,8 +79,6 @@ class Relabeller():
                     new_title = new_title.rstrip(data1.old_label)
                 new_title += label
                 new_filename = os.path.join(tracks_relabel_dir, new_title + extension)
-                if not os.path.exists(tracks_relabel_dir):
-                    os.makedirs(tracks_relabel_dir)
                 with open(new_filename, 'w') as outfile:
                     outfile.write(data1.header)
                     for line in lines.values():
@@ -126,6 +126,10 @@ def run(general_params, params):
     input_files = get_input_files(general_params, params, 'input')
     video_files = get_input_files(general_params, params, 'video_input')
     output_dir = os.path.join(base_dir, params['output'])
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    else:
+        [os.remove(file) for file in glob.glob(os.path.join(output_dir, '*'))]
 
     if method.lower() == 'annotation':
         annotation_image_filename = os.path.join(base_dir, params['annotation_image'])
