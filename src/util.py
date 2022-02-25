@@ -1,3 +1,4 @@
+import glob
 import math
 import os
 
@@ -53,3 +54,15 @@ def get_filetitle_replace(filename):
 
 def get_bio_base_name(filename):
     return os.path.basename(filename).rsplit('_', 1)[0]
+
+
+def get_input_files(general_params, params, input_name):
+    base_dir = general_params['base_dir']
+    if input_name in params:
+        input_path = params[input_name]
+    else:
+        input_path = general_params[input_name]
+    input_path = os.path.join(base_dir, input_path)
+    if os.path.isdir(input_path):
+        input_path = os.path.join(input_path, '*')
+    return sorted(glob.glob(input_path))

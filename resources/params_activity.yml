@@ -1,27 +1,30 @@
-# base_dir: base directory for relative paths - subsequent paths can be relative or absolute
-base_dir: D:/Video/test
-# tracks_path: path to BIO tracks
-tracks_path: tracks/*.csv
-# tracks_relabel_dir: path for BIO tracks that will be relabelled
-tracks_relabel_dir: tracks_relabel
-# label_annotation_image: image matching current video set (e.g. background image)
-label_annotation_image: back.png
-# label_annotation_filename: filename for annotation labels & coordinates
-label_annotation_filename: annotations.csv
+general:
+  base_dir: D:/Video/test
+  input: tracks_relabel/*.csv
+  video_input: '*.avi.mp4'
 
-# profile_v_output_filename: filename for velocity histogram profile data
-profile_v_output_filename: profile_v.csv
-# profile_vangle_output_filename: filename for angular velocity histogram profile data
-profile_vangle_output_filename: profile_vangle.csv
-# dataframe_output_filename: filename for movement classification data
-dataframe_output_filename: activity_dataframe.csv
+operations:
+  - relabel:
+      method: annotation
+      input: tracks/*.csv
+      output: tracks_relabel
+      annotation_image: back.png
+      annotation_filename: annotations.csv
+      # annotation_margin: used when manually annotating image with corresponding labels; margin for selecting/removing existing annotation [pixels]
+      annotation_margin: 10
+      # max_relabel_match_distance: maximum distance between mean tracked position and matching annotated position [pixels]
+      max_relabel_match_distance: 100
 
-# video_input_path: path to video files (note starting with / special characters may require quotes)
-video_input_path: '*.avi.mp4'
-# annotated_video_output_path: path for annotated output video
-annotated_video_output_path: annotated.mp4
+  - relabel_video:
+      video_output: annotated.mp4
 
-# annotation_margin: used when manually annotating image with corresponding labels; margin for selecting/removing existing annotation [pixels]
-annotation_margin: 10
-# max_relabel_match_distance: maximum distance between mean tracked position and matching annotated position [pixels]
-max_relabel_match_distance: 100
+  - extract_features:
+      - profiles:
+          features: [v, vangle]
+          output: 'profile_{feature}.csv'
+      - features:
+          features: [v_percentiles]
+          output: features.csv
+      - activity:
+          features: [activity]
+          output: '{feature}_dataframe.csv'

@@ -10,8 +10,10 @@ class BioFeatures:
         self.filename = filename
         self.filetitle = get_filetitle(filename)
         self.data = import_tracks_by_frame(filename)
+        self.features = {}
+        self.profiles = {}
         self.extract_filename_info()
-        self.calc()
+        self.calc_basic()
 
     def extract_filename_info(self):
         parts = self.filetitle.split('_')
@@ -40,7 +42,7 @@ class BioFeatures:
         self.id = id
         self.info = [id, date, time, camera]
 
-    def calc(self):
+    def calc_basic(self):
         self.dtime = np.mean(np.diff(list(self.data['time'].values())))
         if 'frame' in self.data:
             self.frames = self.data['frame'].values()
@@ -52,13 +54,18 @@ class BioFeatures:
         length_minor = self.data['length_minor1']
         self.meanl = np.mean(list(length_major.values()))
         self.meanw = np.mean(list(length_minor.values()))
+
+    def get_mean_feature(self, feature):
+        return np.mean(list(self.data[feature].values()))
+
+    def calc_profiles(self):
         v = np.asarray(list(self.data['v'].values()))
         v_angle = np.asarray(list(self.data['v_angle'].values()))
         self.v_norm = v / self.meanl
         self.angle_norm = abs(v_angle) / VANGLE_NORM
-        self.v_percentiles = np.percentile(v, [25, 50, 75])
-        self.v_hist = self.calc_loghist(self.v_norm, -2, 2)
-        self.vangle_hist = self.calc_loghist(self.angle_norm, -3, 1)
+        self.features['v_percentiles'] = {f'v {percentile}% percentile': np.percentile(v, percentile) for percentile in [25, 50, 75]}
+        self.profiles['v'] = self.calc_loghist(self.v_norm, -2, 2)
+        self.profiles['vangle'] = self.calc_loghist(self.angle_norm, -3, 1)
 
     def calc_hist(self, data, range):
         hist, bin_edges = np.histogram(data, bins=PROFILE_HIST_BINS, range=(0, range))
@@ -86,22 +93,22 @@ class BioFeatures:
         return hist, bin_edges
 
     def draw_loghists(self, ax_v, ax_vangle, filetitle_plot):
-        self.draw_loghist(self.v_hist, ax_v, 'v ' + filetitle_plot, '#1f77b4')
-        self.draw_loghist(self.vangle_hist, ax_vangle, 'vangle ' + filetitle_plot, '#ff7f0e')
+        self.draw_loghist(self.profiles['v'], ax_v, 'v ' + filetitle_plot, '#1f77b4')
+        self.draw_loghist(self.profiles['vangle'], ax_vangle, 'vangle ' + filetitle_plot, '#ff7f0e')
 
     def draw_loghist(self, hist, ax, title='', color='#1f77b4'):
         h, b, _ = ax.hist(hist[0], bins=hist[1], weights=[1 / self.n] * self.n, color=color)
         ax.set_xscale('log')
         ax.title.set_text(title)
 
-    def classify_movement(self, output_type):
-        self.movement_type = {}
-        if output_type == 'movement_type':
-            self.movement_time = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}
-        elif output_type == 'activity_type':
-            self.movement_time = {'': 0, 'appendages': 0, 'moving': 0}
+    def classify_activity(self, output_type):
+        self.activity = {}
+        if output_type == 'movement':
+            self.nactivity = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}
+        elif output_type == 'activity':
+            self.nactivity = {'': 0, 'appendages': 0, 'moving': 0}
         else:
-            self.movement_time = {}
+            self.nactivity = {}
 
         v_all = self.data['v_projection']
         v_angle_all = self.data['v_angle']
@@ -118,7 +125,7 @@ class BioFeatures:
             v_angle_norm = abs(v_angle) / VANGLE_NORM
 
             type = ''
-            if output_type == 'movement_type':
+            if output_type == 'movement':
                 if v_norm > 3:
                     type = 'ballistic'
                 elif abs(v_norm) > 0.6:
@@ -129,7 +136,7 @@ class BioFeatures:
                 else:
                     type = ''
 
-            elif output_type == 'activity_type':
+            elif output_type == 'activity':
                 if v_norm > 0.2:
                     type = 'moving'
                 elif length_major_delta + length_minor_delta > 0.01:
@@ -140,19 +147,17 @@ class BioFeatures:
             lenl0 = lenl
             lenw0 = lenw
 
-            self.movement_type[frame] = type
-            self.movement_time[type] += 1
+            self.activity[frame] = type
+            self.nactivity[type] += 1
+        return self.nactivity
 
-    def get_movement_time(self, type):
-        return self.movement_time[type] * self.dtime
+    def get_activities_time(self):
+        return {type: self.get_activity_time(type) for type in self.nactivity}
 
-    def get_movement_fraction(self, type, total_frames=None):
+    def get_activity_time(self, type):
+        return self.nactivity[type] * self.dtime
+
+    def get_activity_fraction(self, type, total_frames=None):
         if total_frames is not None and total_frames != 0:
-            return self.movement_time[type] / total_frames
-        return self.movement_time[type]
-
-    def get_movement_times(self):
-        return [self.get_movement_time(type) for type in self.movement_time]
-
-    def get_movement_fractions(self, total_frames):
-        return [self.get_movement_fraction(type, total_frames) for type in self.movement_time]
+            return self.nactivity[type] / total_frames
+        return self.nactivity[type]

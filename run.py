@@ -1,11 +1,10 @@
 import argparse
+from importlib import import_module
 import yaml
-
-from src.relabelling import relabel, relabel_annotate_video
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Relabelling")
+    parser = argparse.ArgumentParser("BioImageOperation-B")
     parser.add_argument('--params',
                         required=True,
                         help='The location of the parameters file')
@@ -13,5 +12,7 @@ if __name__ == '__main__':
     with open(args.params, 'r') as file:
         params = yaml.safe_load(file)
 
-    relabel(params)
-    relabel_annotate_video(params)
+    for operation0 in params['operations']:
+        operation = next(iter(operation0))
+        module = import_module(f'src.pipeline.{operation}')
+        module.run(params['general'], operation0[operation])
