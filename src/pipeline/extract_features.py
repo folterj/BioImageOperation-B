@@ -8,16 +8,16 @@ from src.BioFeatures import BioFeatures
 from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist
 
 
-def extract_events_all(datas, features, contact_distance):
+def extract_events_all(datas, features, contact_distance, activity_frames_range):
     output = {}
     data_sets = list(set([get_bio_base_name(data.filename) for data in datas]))
     for data_set in data_sets:
         datas1 = [data for data in datas if data_set in data.filename]
-        output[data_set] = extract_events(datas1, features, contact_distance)
+        output[data_set] = extract_events(datas1, features, contact_distance, activity_frames_range)
     return output
 
 
-def extract_events(datas, features, contact_distance):
+def extract_events(datas, features, contact_distance, activity_frames_range):
     out_features = []
     log_frames = {}
     log_times = {}
@@ -42,8 +42,8 @@ def extract_events(datas, features, contact_distance):
                 if (not active or merged) and dist < contact_distance:
                     log_frames[datai] = frame1
                     log_times[datai] = frame1 * data.dtime
-                    activities[datai] = data.activity[frame1]
-                    activities0[datai] = data0.activity[frame1]
+                    activities[datai] = get_typical_activity(data.activity, frame1, activity_frames_range)
+                    activities0[datai] = get_typical_activity(data0.activity, frame1, activity_frames_range)
                     break
             if active:
                 last_frame = frame
@@ -75,6 +75,18 @@ def extract_events(datas, features, contact_distance):
                 out_features.append(activities)
 
     return out_features
+
+
+def get_typical_activity(activity, central_frame, frames_range):
+    activities = []
+    for frame in range(central_frame - frames_range, central_frame + frames_range):
+        if frame in activity:
+            activity1 = activity[frame]
+            if activity1 != '':
+                activities.append(activity1)
+    if len(activities) > 0:
+        return sorted(activities)[len(activities) // 2]
+    return ''
 
 
 def run(general_params, params):
@@ -148,7 +160,8 @@ def run(general_params, params):
 
         elif feature_type == 'events':
             contact_distance = feature_set['contact_distance']
-            outputs = extract_events_all(datas, features, contact_distance)
+            activity_frames_range = feature_set['activity_frames_range']
+            outputs = extract_events_all(datas, features, contact_distance, activity_frames_range)
             output_filename = os.path.join(base_dir, feature_set['output'])
             header = ['Date', 'Time', 'Camera'] + list(features)
             with open(output_filename, 'w', newline='') as csvfile:

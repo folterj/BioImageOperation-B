@@ -23,4 +23,5 @@ operations:
       - events:
           features: [n, time, delta_time, activity 0]
           contact_distance: 10
+          activity_frames_range: 7
           output: events.csv
