@@ -1,7 +1,7 @@
 general:
   base_dir: D:/Video/test
   input: tracks_relabel/*.csv
-  video_input: '*.avi.mp4'
+  video_input: '*.mp4'
 
 operations:
   - relabel:
@@ -11,14 +11,16 @@ operations:
 
   - relabel_video:
       video_output: annotated.mp4
+      frame_interval: 10
 
   - extract_features:
       - profiles:
           features: [v, vangle]
           output: 'profile_{feature}.csv'
-      - events:
-          features: [n, time, delta_time]
-          output: events.csv
       - activity:
           features: [movement]
           output: '{feature}_dataframe.csv'
+      - events:
+          features: [n, time, delta_time, activity 0]
+          contact_distance: 10
+          output: events.csv

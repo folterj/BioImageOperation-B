@@ -5,7 +5,7 @@ from src.util import get_filetitle, get_filetitle_replace, get_input_files
 from src.video import annotate_videos
 
 
-def annotate_merge_videos(input_files, video_files, video_output):
+def annotate_merge_videos(input_files, video_files, video_output, frame_interval):
     print('Reading relabelled data')
     all_datas = {}
     for video_file in video_files:
@@ -18,7 +18,7 @@ def annotate_merge_videos(input_files, video_files, video_output):
                 video_datas[label] = import_tracks_by_frame(filename)
         all_datas[video_title] = video_datas
     print('Creating annotated video')
-    annotate_videos(video_files, video_output, all_datas, frame_inerval=100)
+    annotate_videos(video_files, video_output, all_datas, frame_interval=frame_interval)
 
 
 def run(general_params, params):
@@ -26,4 +26,5 @@ def run(general_params, params):
     input_files = get_input_files(general_params, params, 'input')
     video_files = get_input_files(general_params, params, 'video_input')
     video_output_path = os.path.join(base_dir, params['video_output'])
-    annotate_merge_videos(input_files, video_files, video_output_path)
+    frame_interval = params['frame_interval']
+    annotate_merge_videos(input_files, video_files, video_output_path, frame_interval)

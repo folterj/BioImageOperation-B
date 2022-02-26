@@ -17,6 +17,7 @@ operations:
 
   - relabel_video:
       video_output: annotated.mp4
+      frame_interval: 100
 
   - extract_features:
       - profiles:

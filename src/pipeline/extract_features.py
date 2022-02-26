@@ -5,37 +5,55 @@ from tqdm import tqdm
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
-from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info
+from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist
 
 
-def extract_features_all(datas, feature_type, features):
+def extract_events_all(datas, features, contact_distance):
     output = {}
     data_sets = list(set([get_bio_base_name(data.filename) for data in datas]))
     for data_set in data_sets:
         datas1 = [data for data in datas if data_set in data.filename]
-        output[data_set] = extract_features(datas1, feature_type, features)
+        output[data_set] = extract_events(datas1, features, contact_distance)
     return output
 
 
-def extract_features(datas, feature_type, features):
+def extract_events(datas, features, contact_distance):
     out_features = []
-    log_lost = {}
-    frames = set()
-    for data in datas:
-        frames.update(data.frames)
-        data.active = None
-    frames = sorted(frames)
-    for frame in frames:
-        for datai, data in enumerate(datas):
-            if frame in data.frames:
-                data.active = True
-            elif data.active:
-                log_lost[datai] = frame * data.dtime
-                data.active = False
+    log_frames = {}
+    log_times = {}
+    activities = {}
+    activities0 = {}
 
-    log_lost = np.asarray(sorted(log_lost.items(), key=lambda item: item[1]))
-    n = len(log_lost)
-    times = log_lost[:, 1]
+    data0 = datas[0]
+    frames = data0.frames
+
+    for datai0, data in enumerate(datas[1:]):
+        datai = datai0 + 1
+        last_frame = None
+        for frame in frames:
+            active = frame in data.frames
+            if active:
+                frame1 = frame
+            else:
+                frame1 = last_frame
+            if frame1 is not None:
+                merged = data.data['is_merged'][frame1]
+                dist = calc_dist((data0.data['x'][frame1], data0.data['y'][frame1]), (data.data['x'][frame1], data.data['y'][frame1]))
+                if (not active or merged) and dist < contact_distance:
+                    log_frames[datai] = frame1
+                    log_times[datai] = frame1 * data.dtime
+                    activities[datai] = data.activity[frame1]
+                    activities0[datai] = data0.activity[frame1]
+                    break
+            if active:
+                last_frame = frame
+
+    log_frames = np.asarray(sorted(log_frames.items(), key=lambda item: item[1]))
+    log_times = np.asarray(sorted(log_times.items(), key=lambda item: item[1]))
+    activities0 = [value for key, value in sorted(activities0.items())]
+    activities = [value for key, value in sorted(activities.items())]
+    n = len(log_times)
+    times = log_times[:, 1]
     delta_times = []
     last_time = 0
     for time in times:
@@ -49,6 +67,13 @@ def extract_features(datas, feature_type, features):
             out_features.append(list(times))
         elif feature == 'delta_time':
             out_features.append(list(delta_times))
+        elif feature.startswith('activity'):
+            parts = feature.split()
+            if len(parts) > 1 and parts[1] == '0':
+                out_features.append(activities0)
+            else:
+                out_features.append(activities)
+
     return out_features
 
 
@@ -122,7 +147,8 @@ def run(general_params, params):
                         csvwriter.writerow(row)
 
         elif feature_type == 'events':
-            outputs = extract_features_all(datas, feature_type, features)
+            contact_distance = feature_set['contact_distance']
+            outputs = extract_events_all(datas, features, contact_distance)
             output_filename = os.path.join(base_dir, feature_set['output'])
             header = ['Date', 'Time', 'Camera'] + list(features)
             with open(output_filename, 'w', newline='') as csvfile:

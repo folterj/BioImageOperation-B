@@ -4,7 +4,7 @@ from tqdm import tqdm
 from src.util import get_filetitle_replace
 
 
-def annotate_videos(video_infiles, video_outfile, datas, frame_inerval=1):
+def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1):
     width, height, nframes, fps = video_info(video_infiles[0])
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
 
@@ -19,7 +19,7 @@ def annotate_videos(video_infiles, video_outfile, datas, frame_inerval=1):
             if ok:
                 ok, video_frame = vidcap.read()
                 if ok:
-                    if framei % frame_inerval == 0:
+                    if framei % frame_interval == 0:
                         for label, data in video_datas.items():
                             if framei in data['x']:
                                 position = (int(round(data['x'][framei])), int(round(data['y'][framei])))

@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import simpledialog
 
 from src.file.annotations import load_annotations, save_annotations
+from src.util import calc_dist
 
 
 class AnnotationView(object):
@@ -73,7 +74,7 @@ class AnnotationView(object):
         elif event == cv.EVENT_RBUTTONUP:
             # remove
             for annotation in self.annotations:
-                dist = np.sqrt((annotation[0] - x) ** 2 + (annotation[1] - y) ** 2)
+                dist = calc_dist((x, y), annotation)
                 if dist < self.annotation_margin:
                     self.annotations.remove(annotation)
                     self.save()
