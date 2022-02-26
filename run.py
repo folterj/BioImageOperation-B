@@ -15,4 +15,5 @@ if __name__ == '__main__':
     for operation0 in params['operations']:
         operation = next(iter(operation0))
         module = import_module(f'src.pipeline.{operation}')
+        print(f'[Operation: {operation}]')
         module.run(params['general'], operation0[operation])
