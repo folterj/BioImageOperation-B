@@ -66,3 +66,32 @@ def get_input_files(general_params, params, input_name):
     if os.path.isdir(input_path):
         input_path = os.path.join(input_path, '*')
     return sorted(glob.glob(input_path))
+
+
+def extract_filename_info(filename):
+    filetitle = get_filetitle(filename)
+    parts = filetitle.split('_')
+    id = parts[-1]
+    date = 0
+    time = 0
+    camera = 0
+
+    i = 0
+    if not parts[i][0].isnumeric():
+        i += 1
+    if len(parts) > 2:
+        date = parts[i]
+        time = parts[i + 1].replace('-', ':')
+
+    s = filename.lower().find('cam')
+    if s >= 0:
+        while s < len(filename) and not filename[s].isnumeric():
+            s += 1
+        e = s
+        while e < len(filename) and filename[e].isnumeric():
+            e += 1
+        if e > s:
+            camera = int(filename[s:e])
+
+    info = [id, date, time, camera]
+    return info

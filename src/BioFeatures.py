@@ -2,7 +2,7 @@ import numpy as np
 
 from src.file.bio import import_tracks_by_frame
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
-from src.util import get_filetitle
+from src.util import get_filetitle, extract_filename_info
 
 
 class BioFeatures:
@@ -16,31 +16,8 @@ class BioFeatures:
         self.calc_basic()
 
     def extract_filename_info(self):
-        parts = self.filetitle.split('_')
-        id = parts[-1]
-        date = 0
-        time = 0
-        camera = 0
-
-        i = 0
-        if not parts[i][0].isnumeric():
-            i += 1
-        if len(parts) > 2:
-            date = parts[i]
-            time = parts[i + 1].replace('-', ':')
-
-        s = self.filename.lower().find('cam')
-        if s >= 0:
-            while s < len(self.filename) and not self.filename[s].isnumeric():
-                s += 1
-            e = s
-            while e < len(self.filename) and self.filename[e].isnumeric():
-                e += 1
-            if e > s:
-                camera = int(self.filename[s:e])
-
-        self.id = id
-        self.info = [id, date, time, camera]
+        self.info = extract_filename_info(self.filename)
+        self.id = self.info[0]
 
     def calc_basic(self):
         self.dtime = np.mean(np.diff(list(self.data['time'].values())))

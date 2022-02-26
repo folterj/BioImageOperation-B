@@ -1,7 +1,6 @@
 import glob
 import os.path
 import shutil
-
 import cv2 as cv
 import numpy as np
 

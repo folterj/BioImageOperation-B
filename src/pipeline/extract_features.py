@@ -1,20 +1,24 @@
 import csv
 import os
+import numpy as np
 from tqdm import tqdm
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
-from src.util import list_to_str, get_bio_base_name, get_input_files
+from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info
 
 
 def extract_features_all(datas, feature_type, features):
+    output = {}
     data_sets = list(set([get_bio_base_name(data.filename) for data in datas]))
     for data_set in data_sets:
         datas1 = [data for data in datas if data_set in data.filename]
-        extract_features(datas1, feature_type, features)
+        output[data_set] = extract_features(datas1, feature_type, features)
+    return output
 
 
 def extract_features(datas, feature_type, features):
+    out_features = []
     log_lost = {}
     frames = set()
     for data in datas:
@@ -29,8 +33,23 @@ def extract_features(datas, feature_type, features):
                 log_lost[datai] = frame * data.dtime
                 data.active = False
 
-    log_lost = sorted(log_lost.items(), key=lambda item: item[1])
-    return log_lost
+    log_lost = np.asarray(sorted(log_lost.items(), key=lambda item: item[1]))
+    n = len(log_lost)
+    times = log_lost[:, 1]
+    delta_times = []
+    last_time = 0
+    for time in times:
+        delta_times.append(time - last_time)
+        last_time = time
+
+    for feature in features:
+        if feature == 'n':
+            out_features.append(n)
+        elif feature == 'time':
+            out_features.append(list(times))
+        elif feature == 'delta_time':
+            out_features.append(list(delta_times))
+    return out_features
 
 
 def run(general_params, params):
@@ -103,12 +122,13 @@ def run(general_params, params):
                         csvwriter.writerow(row)
 
         elif feature_type == 'events':
-            extract_features_all(datas, feature_type, features)
+            outputs = extract_features_all(datas, feature_type, features)
             output_filename = os.path.join(base_dir, feature_set['output'])
-            header = list(header_start) + list(features)
+            header = ['Date', 'Time', 'Camera'] + list(features)
             with open(output_filename, 'w', newline='') as csvfile:
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(header)
-
-                for feature in features:
-                    pass
+                for output in outputs:
+                    info = extract_filename_info(output)
+                    row = info[1:] + outputs[output]
+                    csvwriter.writerow(row)

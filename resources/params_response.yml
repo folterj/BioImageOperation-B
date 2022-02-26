@@ -9,8 +9,8 @@ operations:
       input: tracks/*.csv
       output: tracks_relabel
 
-#  - relabel_video:
-#      video_output: annotated.mp4
+  - relabel_video:
+      video_output: annotated.mp4
 
   - extract_features:
       - profiles:
