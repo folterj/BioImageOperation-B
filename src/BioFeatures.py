@@ -61,7 +61,7 @@ class BioFeatures:
                 bin = (np.log10(abs(x)) - power_min) / factor
                 if bin >= 0:
                     # discard low values
-                    bin = np.clip(int(bin), 0, PROFILE_HIST_BINS)
+                    bin = np.clip(int(bin), 0, PROFILE_HIST_BINS - 1)
                     hist[bin] += 1
         hist /= self.n
 
