@@ -131,12 +131,15 @@ def run(general_params, params):
         [os.remove(file) for file in glob.glob(os.path.join(output_dir, '*'))]
 
     if method.lower() == 'annotation':
-        annotation_image_filename = os.path.join(base_dir, params['annotation_image'])
         annotation_filename = os.path.join(base_dir, params['annotation_filename'])
-        annotation_margin = params['annotation_margin']
         max_relabel_match_distance = params['max_relabel_match_distance']
         if not os.path.exists(annotation_filename):
+            print('Annotation file not found - performing annotation task')
+            annotation_image_filename = os.path.join(base_dir, params['annotation_image'])
+            annotation_margin = params['annotation_margin']
             annotate(annotation_image_filename, annotation_filename, annotation_margin)
+        else:
+            print('Annotation file found - skipping annotation task')
     else:
         annotation_filename = None
         max_relabel_match_distance = None
