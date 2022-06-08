@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import timedelta
 import numpy as np
 from tqdm import tqdm
 
@@ -93,12 +94,16 @@ def run(general_params, params):
     base_dir = general_params['base_dir']
 
     input_files = get_input_files(general_params, general_params, 'input')
+    print(f'Input files: {len(input_files)}')
     video_files = get_input_files(general_params, general_params, 'video_input')
+    print(f'Video files: {len(video_files)}')
     video_infos = VideoInfos(video_files)
+    print(f'Total length: {timedelta(seconds=int(video_infos.total_length))} (frames: {video_infos.total_frames})')
+
     header_start = ['ID', 'Date', 'Time', 'Camera']
 
     print('Reading input files')
-    datas = [BioFeatures(filename) for filename in input_files]
+    datas = [BioFeatures(filename) for filename in tqdm(input_files)]
 
     for feature_set0 in params:
         feature_type = next(iter(feature_set0))
