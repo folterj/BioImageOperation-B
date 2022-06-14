@@ -6,12 +6,13 @@ from tqdm import tqdm
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
-from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist
+from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist, \
+    find_all_filename_infos
 
 
 def extract_events_all(datas, features, contact_distance, activity_frames_range):
     output = {}
-    data_sets = list(set([get_bio_base_name(data.filename) for data in datas]))
+    data_sets = list(set(['_'.join(data.info0) for data in datas]))
     for data_set in data_sets:
         datas1 = [data for data in datas if data_set in data.filename]
         output[data_set] = extract_events(datas1, features, contact_distance, activity_frames_range)
@@ -92,10 +93,11 @@ def get_typical_activity(activity, central_frame, frames_range):
 
 def run(general_params, params):
     base_dir = general_params['base_dir']
+    add_missing_data_flag = bool(general_params.get('add_missing', False))
 
-    input_files = get_input_files(general_params, general_params, 'input')
+    input_files = get_input_files(general_params, params, 'input')
     print(f'Input files: {len(input_files)}')
-    video_files = get_input_files(general_params, general_params, 'video_input')
+    video_files = get_input_files(general_params, params, 'video_input')
     print(f'Video files: {len(video_files)}')
     video_infos = VideoInfos(video_files)
     print(f'Total length: {timedelta(seconds=int(video_infos.total_length))} (frames: {video_infos.total_frames})')
@@ -104,6 +106,8 @@ def run(general_params, params):
 
     print('Reading input files')
     datas = [BioFeatures(filename) for filename in tqdm(input_files)]
+    if add_missing_data_flag:
+        datas = add_missing_data(datas, input_files)
 
     for feature_set0 in params:
         feature_type = next(iter(feature_set0))
@@ -120,7 +124,9 @@ def run(general_params, params):
                     csvwriter = csv.writer(csvfile)
                     csvwriter.writerow(header)
                     for data in datas:
-                        row = list_to_str(data.info) + list_to_str(data.profiles[feature][0])
+                        row = list_to_str(data.info)
+                        if data.has_data:
+                            row.extend(list_to_str(data.profiles[feature][0]))
                         csvwriter.writerow(row)
 
         elif feature_type == 'features':
@@ -133,7 +139,9 @@ def run(general_params, params):
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(header)
                 for data in datas:
-                    row = list_to_str(data.info) + list_to_str(data.features['v_percentiles'].values())
+                    row = list_to_str(data.info)
+                    if data.has_data:
+                        row.extend(list_to_str(data.features['v_percentiles'].values()))
                     csvwriter.writerow(row)
 
         elif feature_type == 'activity':
@@ -150,17 +158,18 @@ def run(general_params, params):
                     csvwriter = csv.writer(csvfile)
                     csvwriter.writerow(header)
                     for data in datas:
-                        video_info = video_infos.find_match(get_bio_base_name(data.filetitle))
-                        if video_info is not None:
-                            total_frames = video_info.total_frames
-                        else:
-                            total_frames = None
-                        data.classify_activity(output_type=feature)
-
                         row = list_to_str(data.info)
-                        for activity_type in activity_types:
-                            row.append(data.get_activity_time(activity_type))
-                            row.append(data.get_activity_fraction(activity_type, total_frames))
+                        if data.has_data:
+                            video_info = video_infos.find_match(get_bio_base_name(data.filetitle))
+                            if video_info is not None:
+                                total_frames = video_info.total_frames
+                            else:
+                                total_frames = None
+                            data.classify_activity(output_type=feature)
+
+                            for activity_type in activity_types:
+                                row.append(data.get_activity_time(activity_type))
+                                row.append(data.get_activity_fraction(activity_type, total_frames))
                         csvwriter.writerow(row)
 
         elif feature_type == 'events':
@@ -176,3 +185,22 @@ def run(general_params, params):
                     info = extract_filename_info(output)
                     row = info[1:] + outputs[output]
                     csvwriter.writerow(row)
+
+
+def add_missing_data(datas0, files):
+    datas = datas0.copy()
+    all_infos, all_ids = find_all_filename_infos(files)
+    for info0 in all_infos:
+        for id in all_ids:
+            info = [id]
+            info.extend(info0)
+            if not contains_data(datas, info):
+                datas.append(BioFeatures(info=info, id=id))
+    return datas
+
+
+def contains_data(datas, info):
+    for data in datas:
+        if data.info == info:
+            return True
+    return False

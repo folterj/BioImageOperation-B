@@ -2,6 +2,8 @@ general:
   base_dir: D:/Video/test
   input: tracks_relabel/*.csv
   video_input: '*.mp4'
+  # add_missing: add null entries for missing data (time points and/or tracked ids)
+  add_missing: True
 
 operations:
   - relabel:

@@ -6,20 +6,27 @@ from src.util import get_filetitle, extract_filename_info
 
 
 class BioFeatures:
-    def __init__(self, filename):
+    def __init__(self, filename=None, info=None, id=None):
         self.filename = filename
-        self.filetitle = get_filetitle(filename)
-        self.data = import_tracks_by_frame(filename)
-        self.features = {}
-        self.profiles = {}
-        self.extract_filename_info()
-        self.calc_basic()
+        self.info = info
+        self.id = id
+        self.has_data = (filename is not None)
+        if self.has_data:
+            self.filetitle = get_filetitle(filename)
+            self.data = import_tracks_by_frame(filename)
+            self.features = {}
+            self.profiles = {}
+            self.extract_filename_info()
+            self.calc_basic()
 
     def extract_filename_info(self):
         self.info = extract_filename_info(self.filename)
         self.id = self.info[0]
+        self.info0 = self.info[1:]
 
     def calc_basic(self):
+        if not self.has_data:
+            return
         self.dtime = np.mean(np.diff(list(self.data['time'].values())))
         if 'frame' in self.data:
             self.frames = list(self.data['frame'].values())
@@ -33,9 +40,13 @@ class BioFeatures:
         self.meanw = np.mean(list(length_minor.values()))
 
     def get_mean_feature(self, feature):
+        if not self.has_data:
+            return 0
         return np.mean(list(self.data[feature].values()))
 
     def calc_profiles(self):
+        if not self.has_data:
+            return
         v = np.asarray(list(self.data['v'].values()))
         v_angle = np.asarray(list(self.data['v_angle'].values()))
         self.v_norm = v / self.meanl
@@ -79,6 +90,9 @@ class BioFeatures:
         ax.title.set_text(title)
 
     def classify_activity(self, output_type):
+        if not self.has_data:
+            return {}
+
         self.activity = {}
         if output_type == 'movement':
             self.nactivity = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}

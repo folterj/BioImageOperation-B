@@ -91,7 +91,20 @@ def extract_filename_info(filename):
         while e < len(filename) and filename[e].isnumeric():
             e += 1
         if e > s:
-            camera = int(filename[s:e])
+            camera = filename[s:e]
 
     info = [id, date, time, camera]
     return info
+
+
+def find_all_filename_infos(filenames):
+    ids = set()
+    infos = set()
+    for filename in filenames:
+        info0 = extract_filename_info(filename)
+        ids.add(info0[0])
+        infos.add('_'.join(info0[1:]))
+    ids = sorted(list(ids))
+    infos = sorted(list(infos))
+    infos = [info.split('_') for info in infos]
+    return infos, ids
