@@ -72,12 +72,19 @@ def extract_filename_info(filename):
     filetitle = get_filetitle(filename)
     parts = filetitle.split('_')
     id = parts[-1]
-    date = 0
-    time = 0
-    camera = 0
+    date = ''
+    time = ''
+    camera = ''
+
+    pos = len(id) - 1
+    if not id[0].isnumeric() and id[-1].isnumeric():
+        while id[pos].isnumeric() and pos > 0:
+            pos -= 1
+        pos += 1
+        id = id[pos:]
 
     i = 0
-    if not parts[i][0].isnumeric():
+    if parts[i] != '' and not parts[i][0].isnumeric():
         i += 1
     if len(parts) > 2:
         date = parts[i]
@@ -108,3 +115,24 @@ def find_all_filename_infos(filenames):
     infos = sorted(list(infos))
     infos = [info.split('_') for info in infos]
     return infos, ids
+
+
+def get_input_stats(input_files):
+    s = ''
+    infos, ids = find_all_filename_infos(input_files)
+    s += f'#unique video ids: {len(infos)}\n'
+    s += f'#unique track ids: {len(ids)}\n'
+    for info in infos:
+        n = 0
+        for input_file in input_files:
+            if extract_filename_info(input_file)[1:] == info:
+                n += 1
+        s += f'{info[0]} {info[1]} Camera {info[2]} - #tracks:\t{n}\n'
+
+    for id in ids:
+        n = 0
+        for input_file in input_files:
+            if extract_filename_info(input_file)[0] == id:
+                n += 1
+        s += f'Track id {id} - #videos:\t{n}\n'
+    return s

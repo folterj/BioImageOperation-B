@@ -8,21 +8,20 @@ from src.util import get_filetitle, extract_filename_info
 class BioFeatures:
     def __init__(self, filename=None, info=None, id=None):
         self.filename = filename
-        self.info = info
-        self.id = id
         self.has_data = (filename is not None)
         if self.has_data:
+            self.id_info = extract_filename_info(self.filename)
+            self.id = self.id_info[0]
+            self.info = self.id_info[1:]
             self.filetitle = get_filetitle(filename)
             self.data = import_tracks_by_frame(filename)
             self.features = {}
             self.profiles = {}
-            self.extract_filename_info()
             self.calc_basic()
-
-    def extract_filename_info(self):
-        self.info = extract_filename_info(self.filename)
-        self.id = self.info[0]
-        self.info0 = self.info[1:]
+        else:
+            self.info = info
+            self.id = id
+            self.id_info = [id] + info
 
     def calc_basic(self):
         if not self.has_data:

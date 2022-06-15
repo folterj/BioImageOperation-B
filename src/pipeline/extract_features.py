@@ -3,19 +3,20 @@ import os
 from datetime import timedelta
 import numpy as np
 from tqdm import tqdm
+from sys import exit
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
 from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist, \
-    find_all_filename_infos
+    find_all_filename_infos, get_input_stats
 
 
 def extract_events_all(datas, features, contact_distance, activity_frames_range):
     output = {}
-    data_sets = list(set(['_'.join(data.info0) for data in datas]))
-    for data_set in data_sets:
-        datas1 = [data for data in datas if data_set in data.filename]
-        output[data_set] = extract_events(datas1, features, contact_distance, activity_frames_range)
+    data_set_infos = list(set(['_'.join(data.info) for data in datas]))
+    for data_set_info in tqdm(data_set_infos):
+        datas1 = [data for data in datas if data_set_info == '_'.join(data.info)]
+        output[data_set_info] = extract_events(datas1, features, contact_distance, activity_frames_range)
     return output
 
 
@@ -30,32 +31,36 @@ def extract_events(datas, features, contact_distance, activity_frames_range):
     frames = data0.frames
 
     for datai0, data in enumerate(datas[1:]):
-        datai = datai0 + 1
-        last_frame = None
-        for frame in frames:
-            active = frame in data.frames
-            if active:
-                frame1 = frame
-            else:
-                frame1 = last_frame
-            if frame1 is not None:
-                merged = data.data['is_merged'][frame1]
-                dist = calc_dist((data0.data['x'][frame1], data0.data['y'][frame1]), (data.data['x'][frame1], data.data['y'][frame1]))
-                if (not active or merged) and dist < contact_distance:
-                    log_frames[datai] = frame1
-                    log_times[datai] = frame1 * data.dtime
-                    activities[datai] = get_typical_activity(data.activity, frame1, activity_frames_range)
-                    activities0[datai] = get_typical_activity(data0.activity, frame1, activity_frames_range)
-                    break
-            if active:
-                last_frame = frame
+        if data.has_data:
+            datai = datai0 + 1
+            last_frame = None
+            for frame in frames:
+                active = frame in data.frames
+                if active:
+                    frame1 = frame
+                else:
+                    frame1 = last_frame
+                if frame1 is not None:
+                    merged = data.data['is_merged'][frame1]
+                    dist = calc_dist((data0.data['x'][frame1], data0.data['y'][frame1]), (data.data['x'][frame1], data.data['y'][frame1]))
+                    if (not active or merged) and dist < contact_distance:
+                        log_frames[datai] = frame1
+                        log_times[datai] = frame1 * data.dtime
+                        activities[datai] = get_typical_activity(data.activity, frame1, activity_frames_range)
+                        activities0[datai] = get_typical_activity(data0.activity, frame1, activity_frames_range)
+                        break
+                if active:
+                    last_frame = frame
 
     log_frames = np.asarray(sorted(log_frames.items(), key=lambda item: item[1]))
     log_times = np.asarray(sorted(log_times.items(), key=lambda item: item[1]))
     activities0 = [value for key, value in sorted(activities0.items())]
     activities = [value for key, value in sorted(activities.items())]
     n = len(log_times)
-    times = log_times[:, 1]
+    if n > 0:
+        times = log_times[:, 1]
+    else:
+        times = []
     delta_times = []
     last_time = 0
     for time in times:
@@ -90,7 +95,6 @@ def get_typical_activity(activity, central_frame, frames_range):
         return sorted(activities)[len(activities) // 2]
     return ''
 
-
 def run(general_params, params):
     base_dir = general_params['base_dir']
     add_missing_data_flag = bool(general_params.get('add_missing', False))
@@ -101,14 +105,18 @@ def run(general_params, params):
     print(f'Video files: {len(video_files)}')
     video_infos = VideoInfos(video_files)
     print(f'Total length: {timedelta(seconds=int(video_infos.total_length))} (frames: {video_infos.total_frames})')
+    print(get_input_stats(input_files))
 
     header_start = ['ID', 'Date', 'Time', 'Camera']
 
     print('Reading input files')
     datas = [BioFeatures(filename) for filename in tqdm(input_files)]
+
     if add_missing_data_flag:
         datas = add_missing_data(datas, input_files)
+        print(f'Added missing data to total of: {len(datas)}')
 
+    features_done = []
     for feature_set0 in params:
         feature_type = next(iter(feature_set0))
         feature_set = feature_set0[feature_type]
@@ -124,9 +132,9 @@ def run(general_params, params):
                     csvwriter = csv.writer(csvfile)
                     csvwriter.writerow(header)
                     for data in datas:
-                        row = list_to_str(data.info)
+                        row = list_to_str(data.id_info)
                         if data.has_data:
-                            row.extend(list_to_str(data.profiles[feature][0]))
+                            row += list_to_str(data.profiles[feature][0])
                         csvwriter.writerow(row)
 
         elif feature_type == 'features':
@@ -139,9 +147,9 @@ def run(general_params, params):
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(header)
                 for data in datas:
-                    row = list_to_str(data.info)
+                    row = list_to_str(data.id_info)
                     if data.has_data:
-                        row.extend(list_to_str(data.features['v_percentiles'].values()))
+                        row += list_to_str(data.features['v_percentiles'].values())
                     csvwriter.writerow(row)
 
         elif feature_type == 'activity':
@@ -158,7 +166,7 @@ def run(general_params, params):
                     csvwriter = csv.writer(csvfile)
                     csvwriter.writerow(header)
                     for data in datas:
-                        row = list_to_str(data.info)
+                        row = list_to_str(data.id_info)
                         if data.has_data:
                             video_info = video_infos.find_match(get_bio_base_name(data.filetitle))
                             if video_info is not None:
@@ -173,6 +181,9 @@ def run(general_params, params):
                         csvwriter.writerow(row)
 
         elif feature_type == 'events':
+            if 'activity' not in features_done:
+                print('Feature error: Events requires prior Activity extraction')
+                exit(1)
             contact_distance = feature_set['contact_distance']
             activity_frames_range = feature_set['activity_frames_range']
             outputs = extract_events_all(datas, features, contact_distance, activity_frames_range)
@@ -181,26 +192,27 @@ def run(general_params, params):
             with open(output_filename, 'w', newline='') as csvfile:
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(header)
-                for output in outputs:
-                    info = extract_filename_info(output)
-                    row = info[1:] + outputs[output]
+                for key in outputs:
+                    info = key.split('_')
+                    row = info + outputs[key]
                     csvwriter.writerow(row)
+
+        features_done.append(feature_type)
 
 
 def add_missing_data(datas0, files):
     datas = datas0.copy()
     all_infos, all_ids = find_all_filename_infos(files)
-    for info0 in all_infos:
+    for info in all_infos:
         for id in all_ids:
-            info = [id]
-            info.extend(info0)
-            if not contains_data(datas, info):
+            id_info = [id] + info
+            if not contains_data(datas, id_info):
                 datas.append(BioFeatures(info=info, id=id))
     return datas
 
 
-def contains_data(datas, info):
+def contains_data(datas, id_info):
     for data in datas:
-        if data.info == info:
+        if data.id_info == id_info:
             return True
     return False
