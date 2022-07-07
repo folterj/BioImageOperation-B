@@ -9,9 +9,12 @@ class BioData:
         self.filename = filename
         data = import_tracks_by_frame(filename)
         self.frames = sorted(data['area'].keys())
-        frame0 = self.frames[0]
+        if len(self.frames) > 0:
+            frame0 = self.frames[0]
+        else:
+            frame0 = None
         self.old_title = get_filetitle(filename)
-        if 'track_label' in data:
+        if 'track_label' in data and frame0 is not None:
             self.old_label = str(data['track_label'][frame0])
         else:
             self.old_label = self.old_title.rsplit('_')[-1]
