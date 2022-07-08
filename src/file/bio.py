@@ -51,4 +51,3 @@ def import_tracks0(filepath):
             row["contour"] = extract_contour(row["contour"])
             data[frame_index] = row
     return data
-

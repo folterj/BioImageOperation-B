@@ -39,7 +39,7 @@ class Relabeller():
         for new_label, data in enumerate(datas):
             data.pref_label = new_label
             filename, extension = os.path.splitext(os.path.basename(data.filename))
-            new_filename = os.path.join(tracks_relabel_dir, filename.rsplit('_', 1)[0] + str(new_label) + extension)
+            new_filename = os.path.join(tracks_relabel_dir, filename.rsplit('_', 1)[0] + '_' + str(new_label) + extension)
             shutil.copy2(data.filename, new_filename)
 
     def relabel_annotation(self, data_files, tracks_relabel_dir, video_info):

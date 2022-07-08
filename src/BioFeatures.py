@@ -2,7 +2,7 @@ import numpy as np
 
 from src.file.bio import import_tracks_by_frame
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
-from src.util import get_filetitle, extract_filename_info
+from src.util import get_filetitle, extract_filename_id_info
 
 
 class BioFeatures:
@@ -10,7 +10,7 @@ class BioFeatures:
         self.filename = filename
         self.has_data = (filename is not None)
         if self.has_data:
-            self.id_info = extract_filename_info(self.filename)
+            self.id_info = extract_filename_id_info(self.filename)
             self.id = self.id_info[0]
             self.info = self.id_info[1:]
             self.filetitle = get_filetitle(filename)

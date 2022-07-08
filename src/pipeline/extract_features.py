@@ -7,7 +7,7 @@ from sys import exit
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
-from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_info, calc_dist, \
+from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_id_info, calc_dist, \
     find_all_filename_infos, get_input_stats
 
 
@@ -95,6 +95,7 @@ def get_typical_activity(activity, central_frame, frames_range):
         return sorted(activities)[len(activities) // 2]
     return ''
 
+
 def run(general_params, params):
     base_dir = general_params['base_dir']
     add_missing_data_flag = bool(general_params.get('add_missing', False))
@@ -107,14 +108,17 @@ def run(general_params, params):
     print(f'Total length: {timedelta(seconds=int(video_infos.total_length))} (frames: {video_infos.total_frames})')
     print(get_input_stats(input_files))
 
-    header_start = ['ID', 'Date', 'Time', 'Camera']
-
     print('Reading input files')
     datas = [BioFeatures(filename) for filename in tqdm(input_files)]
 
     if add_missing_data_flag:
         datas = add_missing_data(datas, input_files)
         print(f'Added missing data to total of: {len(datas)}')
+
+    header_start = ['ID']
+    nheaders = max([len(data.info) for data in datas])
+    for i in range(nheaders):
+        header_start += [f'info{i + 1}']
 
     features_done = []
     for feature_set0 in params:
@@ -188,7 +192,13 @@ def run(general_params, params):
             activity_frames_range = feature_set['activity_frames_range']
             outputs = extract_events_all(datas, features, contact_distance, activity_frames_range)
             output_filename = os.path.join(base_dir, feature_set['output'])
-            header = ['Date', 'Time', 'Camera'] + list(features)
+
+            nheaders = max([len(data.info) for data in datas])
+            header = []
+            for i in range(nheaders):
+                header += [f'info{i + 1}']
+            header += list(features)
+
             with open(output_filename, 'w', newline='') as csvfile:
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(header)

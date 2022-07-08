@@ -68,49 +68,37 @@ def get_input_files(general_params, params, input_name):
     return sorted(glob.glob(input_path))
 
 
-def extract_filename_info(filename):
+def extract_filename_id_info(filename):
     filetitle = get_filetitle(filename)
     parts = filetitle.split('_')
     id = parts[-1]
-    date = ''
-    time = ''
-    camera = ''
+    info = parts[:-1]
 
-    pos = len(id) - 1
-    if not id[0].isnumeric() and id[-1].isnumeric():
-        while id[pos].isnumeric() and pos > 0:
-            pos -= 1
-        pos += 1
-        id = id[pos:]
+    # find id with non-numeric prefix
+    if not id[0].isnumeric():
+        if id[-1].isnumeric():
+            pos = len(id) - 1
+            while id[pos].isnumeric() and pos > 0:
+                pos -= 1
+            pos += 1
+            id0 = id
+            id = id0[pos:]
+            info += [id0[:pos]]
+        else:
+            id = ''
+            info = parts
 
-    i = 0
-    if parts[i] != '' and not parts[i][0].isnumeric():
-        i += 1
-    if len(parts) > 2:
-        date = parts[i]
-        time = parts[i + 1].replace('-', ':')
-
-    s = filename.lower().find('cam')
-    if s >= 0:
-        while s < len(filename) and not filename[s].isnumeric():
-            s += 1
-        e = s
-        while e < len(filename) and filename[e].isnumeric():
-            e += 1
-        if e > s:
-            camera = filename[s:e]
-
-    info = [id, date, time, camera]
-    return info
+    id_info = [id] + info
+    return id_info
 
 
 def find_all_filename_infos(filenames):
     ids = set()
     infos = set()
     for filename in filenames:
-        info0 = extract_filename_info(filename)
-        ids.add(info0[0])
-        infos.add('_'.join(info0[1:]))
+        id_info = extract_filename_id_info(filename)
+        ids.add(id_info[0])
+        infos.add('_'.join(id_info[1:]))
     ids = sorted(list(ids))
     infos = sorted(list(infos))
     infos = [info.split('_') for info in infos]
@@ -125,14 +113,14 @@ def get_input_stats(input_files):
     for info in infos:
         n = 0
         for input_file in input_files:
-            if extract_filename_info(input_file)[1:] == info:
+            if extract_filename_id_info(input_file)[1:] == info:
                 n += 1
-        s += f'{info[0]} {info[1]} Camera {info[2]} - #tracks:\t{n}\n'
+        s += f'{info[0:-1]} - #tracks:\t{n}\n'
 
     for id in ids:
         n = 0
         for input_file in input_files:
-            if extract_filename_info(input_file)[0] == id:
+            if extract_filename_id_info(input_file)[0] == id:
                 n += 1
         s += f'Track id {id} - #videos:\t{n}\n'
     return s
