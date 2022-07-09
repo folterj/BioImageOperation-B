@@ -1,7 +1,7 @@
 import os.path
 
 from src.file.bio import import_tracks_by_frame
-from src.util import get_filetitle, get_filetitle_replace, get_input_files
+from src.util import get_filetitle, get_filetitle_replace, get_input_files, filter_output_files
 from src.video import annotate_videos
 
 
@@ -21,10 +21,11 @@ def annotate_merge_videos(input_files, video_files, video_output, frame_interval
     annotate_videos(video_files, video_output, all_datas, frame_interval=frame_interval)
 
 
-def run(general_params, params):
+def run(all_params, params):
+    general_params = all_params['general']
     base_dir = general_params['base_dir']
     input_files = get_input_files(general_params, params, 'input')
-    video_files = get_input_files(general_params, params, 'video_input')
+    video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
     video_output_path = os.path.join(base_dir, params['video_output'])
     frame_interval = params['frame_interval']
     annotate_merge_videos(input_files, video_files, video_output_path, frame_interval)

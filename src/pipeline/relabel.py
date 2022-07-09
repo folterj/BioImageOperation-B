@@ -9,7 +9,7 @@ from src.BioData import BioData
 from src.BioFeatures import BioFeatures
 from src.VideoInfo import VideoInfos
 from src.file.annotations import load_annotations
-from src.util import get_bio_base_name, get_input_files
+from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files
 
 
 class Relabeller():
@@ -21,7 +21,7 @@ class Relabeller():
 
     def relabel_all(self, data_files, tracks_relabel_dir, video_files):
         video_infos = VideoInfos(video_files)
-        data_sets = list(set([get_bio_base_name(data_file) for data_file in data_files]))
+        data_sets = numeric_string_sort(list(set([get_bio_base_name(data_file) for data_file in data_files])))
         for data_set in data_sets:
             print('Data set:', data_set)
             data_files1 = [data_file for data_file in data_files if data_set in data_file]
@@ -119,11 +119,12 @@ def annotate(annotation_image_filename, annotation_filename, annotation_margin):
     annotator.close()
 
 
-def run(general_params, params):
+def run(all_params, params):
+    general_params = all_params['general']
     base_dir = general_params['base_dir']
     method = params['method']
     input_files = get_input_files(general_params, params, 'input')
-    video_files = get_input_files(general_params, params, 'video_input')
+    video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
     output_dir = os.path.join(base_dir, params['output'])
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

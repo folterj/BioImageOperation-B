@@ -1,6 +1,7 @@
 import glob
 import math
 import os
+import re
 
 import numpy as np
 import cv2 as cv
@@ -65,7 +66,17 @@ def get_input_files(general_params, params, input_name):
     input_path = os.path.join(base_dir, input_path)
     if os.path.isdir(input_path):
         input_path = os.path.join(input_path, '*')
-    return sorted(glob.glob(input_path))
+    return numeric_string_sort(glob.glob(input_path))
+
+
+def filter_output_files(filenames, all_params):
+    base_dir = all_params['general']['base_dir']
+    for operation0 in all_params['operations']:
+        operation = operation0[next(iter(operation0))]
+        if 'video_output' in operation:
+            filename = os.path.join(base_dir, operation['video_output'])
+            filenames.remove(filename)
+    return filenames
 
 
 def extract_filename_id_info(filename):
@@ -99,8 +110,8 @@ def find_all_filename_infos(filenames):
         id_info = extract_filename_id_info(filename)
         ids.add(id_info[0])
         infos.add('_'.join(id_info[1:]))
-    ids = sorted(list(ids))
-    infos = sorted(list(infos))
+    ids = numeric_string_sort(list(ids))
+    infos = numeric_string_sort(list(infos))
     infos = [info.split('_') for info in infos]
     return infos, ids
 
@@ -124,3 +135,7 @@ def get_input_stats(input_files):
                 n += 1
         s += f'Track id {id} - #videos:\t{n}\n'
     return s
+
+
+def numeric_string_sort(items):
+    return sorted(items, key=lambda item: list(map(int, re.findall(r'\d+', item))))

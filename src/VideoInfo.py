@@ -18,7 +18,8 @@ class VideoInfos(dict):
             video_title = get_filetitle_replace(filename)
             video_info = VideoInfo(filename)
             self.total_frames += video_info.total_frames
-            self.total_length += video_info.total_frames / video_info.fps
+            if video_info.fps != 0:
+                self.total_length += video_info.total_frames / video_info.fps
             self[video_title] = video_info
 
     def find_match(self, target):

@@ -7,8 +7,8 @@ from sys import exit
 
 from src.VideoInfo import VideoInfos
 from src.BioFeatures import BioFeatures
-from src.util import list_to_str, get_bio_base_name, get_input_files, extract_filename_id_info, calc_dist, \
-    find_all_filename_infos, get_input_stats
+from src.util import list_to_str, get_bio_base_name, get_input_files, calc_dist, \
+    find_all_filename_infos, get_input_stats, filter_output_files
 
 
 def extract_events_all(datas, features, contact_distance, activity_frames_range):
@@ -96,13 +96,14 @@ def get_typical_activity(activity, central_frame, frames_range):
     return ''
 
 
-def run(general_params, params):
+def run(all_params, params):
+    general_params = all_params['general']
     base_dir = general_params['base_dir']
     add_missing_data_flag = bool(general_params.get('add_missing', False))
 
     input_files = get_input_files(general_params, params, 'input')
     print(f'Input files: {len(input_files)}')
-    video_files = get_input_files(general_params, params, 'video_input')
+    video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
     print(f'Video files: {len(video_files)}')
     video_infos = VideoInfos(video_files)
     print(f'Total length: {timedelta(seconds=int(video_infos.total_length))} (frames: {video_infos.total_frames})')
