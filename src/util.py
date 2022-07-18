@@ -75,7 +75,8 @@ def filter_output_files(filenames, all_params):
         operation = operation0[next(iter(operation0))]
         if 'video_output' in operation:
             filename = os.path.join(base_dir, operation['video_output'])
-            filenames.remove(filename)
+            if filename in filenames:
+                filenames.remove(filename)
     return filenames
 
 
