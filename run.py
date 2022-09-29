@@ -2,11 +2,11 @@ import argparse
 from importlib import import_module
 import yaml
 
-from src.parameters import VERSION
+from version import __version__
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('BioImageOperation-B ' + VERSION)
+    parser = argparse.ArgumentParser('BioImageOperation-B ' + __version__)
     parser.add_argument('--params',
                         required=True,
                         help='The parameters file')
