@@ -24,13 +24,13 @@ class AnnotationView(object):
 
     def redraw(self):
         self.view_image = self.image.copy()
-        for annotation in self.annotations:
+        for annotation in self.annotations.items():
             self.draw_annotation(annotation)
         self.show()
 
     def draw_annotation(self, annotation):
-        posx, posy, label = annotation
-        position = (posx, posy)
+        label, position = annotation
+        position = (int(position[0]), int(position[1]))
         fontface = cv.FONT_HERSHEY_SIMPLEX
         scale = 1
         thickness = 1
@@ -67,17 +67,22 @@ class AnnotationView(object):
             # add
             label = simpledialog.askstring('Annotation', 'Label')
             if label is not None:
-                self.annotations.append([x, y, label])
+                self.annotations[label] = (x, y)
                 self.save()
                 self.redraw()
         elif event == cv.EVENT_RBUTTONUP:
             # remove
-            for annotation in self.annotations:
-                dist = calc_dist((x, y), annotation)
-                if dist < self.annotation_margin:
-                    self.annotations.remove(annotation)
-                    self.save()
-                    self.redraw()
+            min_dist = None
+            min_annotation = None
+            for annotation, value in self.annotations.items():
+                dist = calc_dist((x, y), value)
+                if min_dist is None or dist < min_dist:
+                    min_dist = dist
+                    min_annotation = annotation
+            if min_annotation is not None and min_dist < self.annotation_margin:
+                self.annotations.pop(min_annotation)
+                self.save()
+                self.redraw()
 
     def save(self):
         save_annotations(self.annotation_filename, self.annotations)

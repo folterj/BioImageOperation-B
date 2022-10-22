@@ -14,7 +14,7 @@ class BioFeatures:
             self.id = self.id_info[0]
             self.info = self.id_info[1:]
             self.filetitle = get_filetitle(filename)
-            self.data = import_tracks_by_frame(filename)
+            self.data, self.has_id = import_tracks_by_frame(filename)
             self.features = {}
             self.profiles = {}
             self.calc_basic()

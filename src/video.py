@@ -1,4 +1,5 @@
 import cv2 as cv
+import numpy as np
 from tqdm import tqdm
 
 from src.util import get_filetitle_replace
@@ -69,18 +70,19 @@ def annotate_frame(video_frame, frame_index, positions, headers, all_data):
             draw_text_abs(video_frame, text, (x1, y))
 
 
-def draw_annotation(image, label, position, scale=0.5, thickness=1, color=(255, 255, 0)):
+def draw_annotation(image, label, position, scale=1, thickness=1, color=(127, 127, 127)):
     position = (int(position[0]), int(position[1]))
     cv.drawMarker(image, position, color)
     return draw_text_abs(image, label, position, scale=scale, thickness=thickness, color=color)
 
 
-def draw_text_abs(image, text, position, scale=0.5, thickness=1, color=(255, 255, 0), draw_mode=True):
+def draw_text_abs(image, text, position, scale=1, thickness=1, color=(127, 127, 127), draw_mode=True):
+    font_scale = scale * np.sqrt(image.shape[0] / 1000.0 * image.shape[1] / 1000.0) / 2
     position = (int(position[0]), int(position[1]))
     fontface = cv.FONT_HERSHEY_SIMPLEX
-    size = cv.getTextSize(text, fontface, scale, thickness)
+    size = cv.getTextSize(text, fontface, font_scale, thickness)
     if draw_mode:
-        cv.putText(image, text, position, fontface, scale, color, thickness, cv.LINE_AA)
+        cv.putText(image, text, position, fontface, font_scale, color, thickness, cv.LINE_AA)
     return size
 
 

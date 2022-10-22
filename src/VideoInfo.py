@@ -23,7 +23,9 @@ class VideoInfos(dict):
             self[video_title] = video_info
 
     def find_match(self, target):
-        for key, item in self.items():
+        if len(self) == 1:
+            return list(self.values())[0]
+        for key, value in self.items():
             if key in target:
-                return item
+                return value
         return None

@@ -20,6 +20,21 @@ def calc_dist(pos0, pos1=(0, 0)):
     return np.sqrt((pos1[0] - pos0[0]) ** 2 + (pos1[1] - pos0[1]) ** 2)
 
 
+def isvalid_position(position):
+    return position[0] >= 0 and position[1] >= 0
+
+
+def calc_mean_dist(positions0, positions1):
+    distances = []
+    for frame in positions0:
+        if frame in positions1:
+            position0 = positions0[frame]
+            position1 = positions1[frame]
+            if isvalid_position(position0) and isvalid_position(position1):
+                distances.append(calc_dist(position0, position1))
+    return np.mean(distances)
+
+
 def get_image_moments(image):
     moments = cv.moments(image.astype(np.float))
     return moments
