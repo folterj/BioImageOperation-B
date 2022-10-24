@@ -12,7 +12,7 @@ def annotate_merge_videos(input_files, video_files, video_output, frame_interval
         video_datas = {}
         video_title = get_filetitle_replace(video_file)
         for filename in input_files:
-            if video_title in filename:
+            if video_title in filename or len(input_files) == 1 or len(video_files) == 1:
                 title = get_filetitle(filename)
                 data, has_id = import_tracks_by_frame(filename)
                 if has_id:
@@ -29,7 +29,11 @@ def run(all_params, params):
     general_params = all_params['general']
     base_dir = general_params['base_dir']
     input_files = get_input_files(general_params, params, 'input')
+    if len(input_files) == 0:
+        raise ValueError('Missing input files')
     video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
+    if len(input_files) == 0:
+        raise ValueError('Missing video files')
     video_output_path = os.path.join(base_dir, params['video_output'])
     frame_interval = params.get('frame_interval', 1)
     annotate_merge_videos(input_files, video_files, video_output_path, frame_interval)

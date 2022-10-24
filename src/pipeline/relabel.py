@@ -6,11 +6,12 @@ import numpy as np
 
 from src.AnnotationView import AnnotationView
 from src.BioData import BioData
-from src.BioFeatures import BioFeatures
+from src.BioFeatures import BioFeatures, create_biofeatures
 from src.VideoInfo import VideoInfos
 from src.file.annotations import load_annotations
+from src.file.bio import import_tracks_by_id, export_tracks
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
-    calc_mean_dist
+    calc_mean_dist, extract_filename_id_info
 
 
 class Relabeller():
@@ -36,7 +37,7 @@ class Relabeller():
 
     def relabel_sort(self, data_files, tracks_relabel_dir, video_info):
         sort_key = self.method.split()[-1]
-        datas = [BioFeatures(data_file) for data_file in data_files]
+        datas = create_biofeatures(data_files)
         values = [data.get_mean_feature(sort_key) for data in datas]
         datas = [data for value, data in sorted(zip(values, datas), reverse=True)]
         for new_label, data in enumerate(datas):
@@ -46,7 +47,7 @@ class Relabeller():
             shutil.copy2(data.filename, new_filename)
 
     def relabel_annotation(self, data_files, tracks_relabel_dir, video_info):
-        # Reading labels
+        # Reading labels & find nearest
         datas = []
         for data_file in data_files:
             data = BioData(data_file)
@@ -55,7 +56,9 @@ class Relabeller():
                 data.pref_label, data.pref_label_dist = pref_label, pref_label_dist
                 datas.append(data)
 
-        # Selecting labels
+        self.save_data_files(datas, tracks_relabel_dir, video_info)
+
+    def save_data_files(self, datas, tracks_relabel_dir, video_info):
         for label in self.annotations:
             datas1 = [data for data in datas if data.pref_label == label]
             all_frames = []
@@ -115,7 +118,7 @@ class Relabeller():
     def relabel_gt(self, data_files, tracks_relabel_dir, video_info):
         final_matches = {}
         matches = {}
-        datas = [BioFeatures(data_file) for data_file in data_files]
+        datas = create_biofeatures(data_files)
         available_tracks = [data.id for data in datas]
         for annotation, gt_positions in self.annotations.items():
             distances = {}
@@ -126,12 +129,16 @@ class Relabeller():
 
         distances = []
         for gt_id, matches1 in matches.items():
-            for label in matches1:
+            for label, dist in matches1.items():
                 if label in available_tracks:
                     final_matches[gt_id] = label
                     available_tracks.remove(label)
-                    distances.append(matches1[label])
+                    distances.append(dist)
                     break
+
+        save_files(final_matches, data_files, tracks_relabel_dir)
+
+        print(f'#Matches: {len(distances)}')
         mean_dist = np.mean(distances)
         print(f'Mean distance: {mean_dist:.3f}')
         match_rate = self.get_match_rate(final_matches, datas)
@@ -146,6 +153,7 @@ class Relabeller():
                     positions1 = data.positions
             for frame in positions1:
                 min_dist = None
+                gt_id1 = None
                 for gt_id0, positions0 in self.annotations.items():
                     if frame in positions0:
                         dist = calc_dist(positions0[frame], positions1[frame])
@@ -155,6 +163,36 @@ class Relabeller():
                 correct.append(gt_id1 == gt_id)
         match_rate = np.mean(correct)
         return match_rate
+
+
+def save_files(matches, data_files, tracks_relabel_dir):
+    datas = {}
+    single_file = (len(data_files) == 1)
+    for i, data_file in enumerate(data_files):
+        basename, extension = os.path.splitext(os.path.basename(data_file))
+        parts = basename.split('_')
+        if not single_file and len(parts) > 0:
+            basename = '_'.join(parts[:-1])
+        data, has_id = import_tracks_by_id(data_file)
+        if has_id:
+            datas |= data
+        else:
+            if len(parts) > 0:
+                id = parts[-1]
+            else:
+                id = str(i)
+            datas[id] = data
+    for annotation_id, track_id in matches.items():
+        data = datas[track_id]
+        if 'id' in data:
+            data['id'] = annotation_id
+        elif 'track_label' in data:
+            data['track_label'] = annotation_id
+        new_filename = os.path.join(tracks_relabel_dir, basename)
+        if len(data_files) > 1:
+            new_filename += '_' + annotation_id
+        new_filename += extension
+        export_tracks(new_filename, data)
 
 
 def annotate(annotation_image_filename, annotation_filename, annotation_margin):
@@ -171,6 +209,8 @@ def run(all_params, params):
     base_dir = general_params['base_dir']
     method = params['method']
     input_files = get_input_files(general_params, params, 'input')
+    if len(input_files) == 0:
+        raise ValueError('Missing input files')
     video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
     output_dir = os.path.join(base_dir, params['output'])
     if not os.path.exists(output_dir):

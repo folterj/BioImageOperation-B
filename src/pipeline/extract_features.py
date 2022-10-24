@@ -6,7 +6,7 @@ from tqdm import tqdm
 from sys import exit
 
 from src.VideoInfo import VideoInfos
-from src.BioFeatures import BioFeatures
+from src.BioFeatures import BioFeatures, create_biofeatures
 from src.util import list_to_str, get_bio_base_name, get_input_files, calc_dist, \
     find_all_filename_infos, get_input_stats, filter_output_files
 
@@ -102,6 +102,8 @@ def run(all_params, params):
     add_missing_data_flag = bool(general_params.get('add_missing', False))
 
     input_files = get_input_files(general_params, params, 'input')
+    if len(input_files) == 0:
+        raise ValueError('Missing input files')
     print(f'Input files: {len(input_files)}')
     video_files = filter_output_files(get_input_files(general_params, params, 'video_input'), all_params)
     print(f'Video files: {len(video_files)}')
@@ -110,8 +112,7 @@ def run(all_params, params):
     print(get_input_stats(input_files))
 
     print('Reading input files')
-    datas = [BioFeatures(filename) for filename in tqdm(input_files)]
-
+    datas = create_biofeatures(input_files)
     if add_missing_data_flag:
         datas = add_missing_data(datas, input_files)
         print(f'Added missing data to total of: {len(datas)}')

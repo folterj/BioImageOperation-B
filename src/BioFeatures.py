@@ -6,22 +6,24 @@ from src.util import get_filetitle, extract_filename_id_info
 
 
 class BioFeatures:
-    def __init__(self, filename=None, info=None, id=None):
+    def __init__(self, data=None, filename=None, info=None, id=None):
+        self.data = data
         self.filename = filename
-        self.has_data = (filename is not None)
-        if self.has_data:
-            self.id_info = extract_filename_id_info(self.filename)
-            self.id = self.id_info[0]
-            self.info = self.id_info[1:]
+        self.info = info
+        self.id = id
+        if self.filename is not None:
             self.filetitle = get_filetitle(filename)
-            self.data, self.has_id = import_tracks_by_frame(filename)
+            id_info = extract_filename_id_info(self.filename)
+            if id is None:
+                self.id = id_info[0]
+            if info is None:
+                self.info = id_info[1:]
+        self.id_info = [self.id] + self.info
+        self.has_data = (data is not None)
+        if self.has_data:
             self.features = {}
             self.profiles = {}
             self.calc_basic()
-        else:
-            self.info = info
-            self.id = id
-            self.id_info = [id] + info
 
     def calc_basic(self):
         if not self.has_data:
@@ -151,3 +153,15 @@ class BioFeatures:
         if total_frames is not None and total_frames != 0:
             return self.nactivity[type] / total_frames
         return self.nactivity[type]
+
+
+def create_biofeatures(filenames):
+    biofeatures = []
+    for filename in filenames:
+        data, has_id = import_tracks_by_frame(filename)
+        if has_id:
+            for id, data1 in data.items():
+                biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
+        else:
+            biofeatures.append(BioFeatures(data=data, filename=filename))
+    return biofeatures
