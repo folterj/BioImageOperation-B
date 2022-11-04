@@ -6,7 +6,7 @@ from version import __version__
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('BioImageOperation-B ' + __version__)
+    parser = argparse.ArgumentParser(f'BioImageOperation-B {__version__}')
     parser.add_argument('--params',
                         required=True,
                         help='The parameters file')

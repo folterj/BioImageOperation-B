@@ -4,16 +4,23 @@ import pandas as pd
 from src.util import pairwise
 
 
-def import_tracks_by_id(filepath):
+def import_dataframe(filepath):
     # pandas automatically converts values
     df = pd.read_csv(filepath)
     df.columns = df.columns.str.lower()
     id_col = None
+    frame_col = None
     for header in df.columns:
         if header in ['id', 'track_label']:
             id_col = header
-    has_id = (id_col is not None)
+        if header == 'frame':
+            frame_col = header
+    return df, id_col, frame_col
 
+
+def import_tracks_by_id(filepath):
+    df, id_col, frame_col = import_dataframe(filepath)
+    has_id = (id_col is not None)
     if has_id:
         data = {}
         for id in set(df[id_col]):
@@ -25,19 +32,9 @@ def import_tracks_by_id(filepath):
 
 
 def import_tracks_by_frame(filepath, convert_contours=False):
-    # pandas automatically converts values
-    df = pd.read_csv(filepath)
-    df.columns = df.columns.str.lower()
-    id_col = None
-    frame_col = None
-    for header in df.columns:
-        if header in ['id', 'track_label']:
-            id_col = header
-        if header == 'frame':
-            frame_col = header
+    df, id_col, frame_col = import_dataframe(filepath)
     has_id = (id_col is not None)
     has_frames = (frame_col is not None)
-
     if has_id:
         data = {}
         for id in set(df[id_col]):

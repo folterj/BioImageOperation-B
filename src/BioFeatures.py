@@ -1,6 +1,7 @@
 import numpy as np
 
 from src.file.bio import import_tracks_by_frame
+from src.file.plain_csv import import_csv
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
 from src.util import get_filetitle, extract_filename_id_info
 
@@ -158,10 +159,8 @@ class BioFeatures:
 def create_biofeatures(filenames):
     biofeatures = []
     for filename in filenames:
-        data, has_id = import_tracks_by_frame(filename)
-        if has_id:
-            for id, data1 in data.items():
-                biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
-        else:
-            biofeatures.append(BioFeatures(data=data, filename=filename))
+        #data, has_id = import_tracks_by_frame(filename)
+        data = import_csv(filename)
+        for id, data1 in data.items():
+            biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
     return biofeatures

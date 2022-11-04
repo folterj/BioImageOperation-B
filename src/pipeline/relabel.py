@@ -10,6 +10,7 @@ from src.BioFeatures import BioFeatures, create_biofeatures
 from src.VideoInfo import VideoInfos
 from src.file.annotations import load_annotations
 from src.file.bio import import_tracks_by_id, export_tracks
+from src.file.plain_csv import import_csv
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
     calc_mean_dist, extract_filename_id_info
 
@@ -19,7 +20,8 @@ class Relabeller():
         self.method = method
         self.max_relabel_match_distance = max_relabel_match_distance
         if annotation_filename != '':
-            self.annotations = load_annotations(annotation_filename)
+            #self.annotations = load_annotations(annotation_filename)
+            self.annotations = import_csv(annotation_filename)
 
     def relabel_all(self, data_files, tracks_relabel_dir, video_files):
         video_infos = VideoInfos(video_files)

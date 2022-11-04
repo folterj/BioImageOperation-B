@@ -7,7 +7,7 @@ from src.util import get_filetitle
 class BioData:
     def __init__(self, filename):
         self.filename = filename
-        data = import_tracks_by_frame(filename)
+        data, has_id = import_tracks_by_frame(filename)
         self.frames = sorted(data['area'].keys())
         if len(self.frames) > 0:
             frame0 = self.frames[0]
