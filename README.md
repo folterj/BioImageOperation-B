@@ -12,3 +12,5 @@ pip install -r requirements.txt
 - From BIO-B location, run python script:
 
 python run.py --params path/to/params.yml
+
+For support and discussion, please use the [Image.sc forum](https://forum.image.sc) and post to the forum with the tag 'BioImageOperation'.
