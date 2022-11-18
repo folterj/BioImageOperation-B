@@ -30,7 +30,7 @@ def import_csv(filename):
                     if column not in columns:
                         break
                     i += 1
-            columns.append(column)
+            columns.append(column.lower())
     df = pd.read_csv(filename, names=columns, skiprows=1)
     if has_id:
         ids = set()
@@ -38,7 +38,6 @@ def import_csv(filename):
             for value in df[columns[id_col]]:
                 if not math.isnan(value):
                     ids.add(int(value))
-        data = {}
         for id in ids:
             data[str(id)] = {}
             for id_col in id_cols:

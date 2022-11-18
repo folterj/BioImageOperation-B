@@ -12,7 +12,7 @@ from src.file.annotations import load_annotations
 from src.file.bio import import_tracks_by_id, export_tracks
 from src.file.plain_csv import import_csv
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
-    calc_mean_dist, extract_filename_id_info
+    calc_mean_dist, extract_filename_id_info, isvalid_position
 
 
 class Relabeller():
@@ -122,7 +122,8 @@ class Relabeller():
         matches = {}
         datas = create_biofeatures(data_files)
         available_tracks = [data.id for data in datas]
-        for annotation, gt_positions in self.annotations.items():
+        for annotation, gt_values in self.annotations.items():
+            gt_positions = {frame: (x, y) for frame, x, y in zip(gt_values['x'].keys(), gt_values['x'].values(), gt_values['y'].values())}
             distances = {}
             for data in datas:
                 distances[data.id] = calc_mean_dist(gt_positions, data.positions)
@@ -132,22 +133,24 @@ class Relabeller():
         distances = []
         for gt_id, matches1 in matches.items():
             for label, dist in matches1.items():
-                if label in available_tracks:
+                if label in available_tracks:   # and dist <= self.max_relabel_match_distance:
                     final_matches[gt_id] = label
                     available_tracks.remove(label)
                     distances.append(dist)
                     break
 
-        save_files(final_matches, data_files, tracks_relabel_dir)
-
-        print(f'#Matches: {len(distances)}')
+        print(f'#Matches: {len(final_matches)}')
         mean_dist = np.mean(distances)
-        print(f'Mean distance: {mean_dist:.3f}')
-        match_rate = self.get_match_rate(final_matches, datas)
+        print(f'Mean distance: {mean_dist:.1f}')
+        match_rate, min_dist = self.get_match_rate(final_matches, datas)
         print(f'Match rate: {match_rate:.3f}')
+        print(f'Minimum match distance (mean): {min_dist:.1f}')
+
+        save_files(final_matches, data_files, tracks_relabel_dir)
 
     def get_match_rate(self, matches, datas):
         correct = []
+        min_dists = []
         for gt_id, track_id in matches.items():
             positions1 = []
             for data in datas:
@@ -156,15 +159,20 @@ class Relabeller():
             for frame in positions1:
                 min_dist = None
                 gt_id1 = None
-                for gt_id0, positions0 in self.annotations.items():
-                    if frame in positions0:
-                        dist = calc_dist(positions0[frame], positions1[frame])
-                        if min_dist is None or dist < min_dist:
-                            min_dist = dist
-                            gt_id1 = gt_id0
+                for gt_id0, values0 in self.annotations.items():
+                    if frame in values0['x']:
+                        position0 = values0['x'][frame], values0['y'][frame]
+                        position1 = positions1[frame]
+                        if isvalid_position(position0) and isvalid_position(position1):
+                            dist = calc_dist(position0, position1)
+                            if min_dist is None or dist < min_dist:
+                                min_dist = dist
+                                gt_id1 = gt_id0
                 correct.append(gt_id1 == gt_id)
+                if min_dist is not None:
+                    min_dists.append(min_dist)
         match_rate = np.mean(correct)
-        return match_rate
+        return match_rate, np.mean(min_dists)
 
 
 def save_files(matches, data_files, tracks_relabel_dir):

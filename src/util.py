@@ -21,7 +21,7 @@ def calc_dist(pos0, pos1=(0, 0)):
 
 
 def isvalid_position(position):
-    return position[0] >= 0 and position[1] >= 0
+    return position[0] >= 0 and position[1] >= 0 and np.isfinite(position[0]) and np.isfinite(position[1])
 
 
 def calc_mean_dist(positions0, positions1):

@@ -1,6 +1,7 @@
+import os
 import numpy as np
 
-from src.file.bio import import_tracks_by_frame
+from src.file.numpy_format import import_numpy
 from src.file.plain_csv import import_csv
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
 from src.util import get_filetitle, extract_filename_id_info
@@ -34,12 +35,14 @@ class BioFeatures:
             self.frames = list(self.data['frame'].values())
         else:
             self.frames = list(self.data['x'].keys())
+        self.frames = np.int0(self.frames)
         self.n = len(self.frames)
         self.positions = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())}
-        length_major = self.data['length_major1']
-        length_minor = self.data['length_minor1']
-        self.meanl = np.mean(list(length_major.values()))
-        self.meanw = np.mean(list(length_minor.values()))
+        if 'length_major1' in self.data:
+            length_major = self.data['length_major1']
+            length_minor = self.data['length_minor1']
+            self.meanl = np.mean(list(length_major.values()))
+            self.meanw = np.mean(list(length_minor.values()))
 
     def get_mean_feature(self, feature):
         if not self.has_data:
@@ -159,8 +162,11 @@ class BioFeatures:
 def create_biofeatures(filenames):
     biofeatures = []
     for filename in filenames:
-        #data, has_id = import_tracks_by_frame(filename)
-        data = import_csv(filename)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext.startswith('.np'):
+            data = import_numpy(filename)
+        else:
+            data = import_csv(filename)
         for id, data1 in data.items():
             biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
     return biofeatures
