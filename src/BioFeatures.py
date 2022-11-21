@@ -4,7 +4,7 @@ import numpy as np
 from src.file.numpy_format import import_numpy
 from src.file.plain_csv import import_csv
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
-from src.util import get_filetitle, extract_filename_id_info
+from src.util import get_filetitle, extract_filename_id_info, isvalid_position
 
 
 class BioFeatures:
@@ -37,7 +37,8 @@ class BioFeatures:
             self.frames = list(self.data['x'].keys())
         self.frames = np.int0(self.frames)
         self.n = len(self.frames)
-        self.positions = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())}
+        self.position = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())
+                         if isvalid_position((x, y))}
         if 'length_major1' in self.data:
             length_major = self.data['length_major1']
             length_minor = self.data['length_minor1']
@@ -166,7 +167,7 @@ def create_biofeatures(filenames):
         if ext.startswith('.np'):
             data = import_numpy(filename)
         else:
-            data = import_csv(filename)
+            data = import_csv(filename, add_position=True)
         for id, data1 in data.items():
             biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
     return biofeatures

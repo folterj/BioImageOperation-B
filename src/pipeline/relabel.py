@@ -6,13 +6,12 @@ import numpy as np
 
 from src.AnnotationView import AnnotationView
 from src.BioData import BioData
-from src.BioFeatures import BioFeatures, create_biofeatures
+from src.BioFeatures import create_biofeatures
 from src.VideoInfo import VideoInfos
-from src.file.annotations import load_annotations
-from src.file.bio import import_tracks_by_id, export_tracks
+from src.file.bio import export_tracks
 from src.file.plain_csv import import_csv
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
-    calc_mean_dist, extract_filename_id_info, isvalid_position
+    calc_mean_dist
 
 
 class Relabeller():
@@ -20,8 +19,7 @@ class Relabeller():
         self.method = method
         self.max_relabel_match_distance = max_relabel_match_distance
         if annotation_filename != '':
-            #self.annotations = load_annotations(annotation_filename)
-            self.annotations = import_csv(annotation_filename)
+            self.annotations = import_csv(annotation_filename, add_position=True)
 
     def relabel_all(self, data_files, tracks_relabel_dir, video_files):
         video_infos = VideoInfos(video_files)
@@ -123,10 +121,9 @@ class Relabeller():
         datas = create_biofeatures(data_files)
         available_tracks = [data.id for data in datas]
         for annotation, gt_values in self.annotations.items():
-            gt_positions = {frame: (x, y) for frame, x, y in zip(gt_values['x'].keys(), gt_values['x'].values(), gt_values['y'].values())}
             distances = {}
             for data in datas:
-                distances[data.id] = calc_mean_dist(gt_positions, data.positions)
+                distances[data.id] = calc_mean_dist(gt_values['position'], data.position)
             matches[annotation] = dict(sorted(distances.items(), key=lambda item: item[1]))
         matches = dict(sorted(matches.items(), key=lambda item: next(iter(item[1].items()))[1]))
 
@@ -155,19 +152,16 @@ class Relabeller():
             positions1 = []
             for data in datas:
                 if data.id == track_id:
-                    positions1 = data.positions
+                    positions1 = data.position
             for frame in positions1:
                 min_dist = None
                 gt_id1 = None
                 for gt_id0, values0 in self.annotations.items():
                     if frame in values0['x']:
-                        position0 = values0['x'][frame], values0['y'][frame]
-                        position1 = positions1[frame]
-                        if isvalid_position(position0) and isvalid_position(position1):
-                            dist = calc_dist(position0, position1)
-                            if min_dist is None or dist < min_dist:
-                                min_dist = dist
-                                gt_id1 = gt_id0
+                        dist = calc_dist(values0['position'][frame], positions1[frame])
+                        if min_dist is None or dist < min_dist:
+                            min_dist = dist
+                            gt_id1 = gt_id0
                 correct.append(gt_id1 == gt_id)
                 if min_dist is not None:
                     min_dists.append(min_dist)
@@ -183,15 +177,7 @@ def save_files(matches, data_files, tracks_relabel_dir):
         parts = basename.split('_')
         if not single_file and len(parts) > 0:
             basename = '_'.join(parts[:-1])
-        data, has_id = import_tracks_by_id(data_file)
-        if has_id:
-            datas |= data
-        else:
-            if len(parts) > 0:
-                id = parts[-1]
-            else:
-                id = str(i)
-            datas[id] = data
+        datas |= import_csv(data_file)
     for annotation_id, track_id in matches.items():
         data = datas[track_id]
         if 'id' in data:

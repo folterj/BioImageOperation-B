@@ -3,7 +3,7 @@ import math
 import pandas as pd
 
 
-def import_csv(filename):
+def import_csv(filename, add_position=False):
     # dict[id][frame]
     # (id/frame can be None)
     data = {}
@@ -47,10 +47,13 @@ def import_csv(filename):
                 label_set = parts[-1]
                 if str.isnumeric(label_set):
                     # filter column names
-                    for col in id_df.columns:
+                    for col in list(id_df.columns):
                         parts = col.rsplit('_', 1)
-                        if str.isnumeric(parts[-1]) and parts[-1] != label_set:
-                            id_df = id_df.drop(columns=col)
+                        if str.isnumeric(parts[-1]):
+                            if parts[-1] == label_set:
+                                id_df.columns = id_df.columns.str.replace(col, parts[0])
+                            else:
+                                id_df = id_df.drop(columns=col)
                 if len(id_df) > 0:
                     if has_frame:
                         frame_col = columns[frame_cols[0]]
@@ -58,6 +61,8 @@ def import_csv(filename):
                         frame_col = 'frame'
                         id_df.insert(0, frame_col, range(len(id_df)))
                     id_df.set_index(frame_col, drop=False, inplace=True)
+                    if add_position and 'x' in id_df.columns:
+                        id_df['position'] = [(x, y) for x, y in zip(id_df['x'], id_df['y'])]
                     data[str(id)] |= id_df.to_dict()
     else:
         if has_frame:
@@ -66,6 +71,8 @@ def import_csv(filename):
             frame_col = 'frame'
             df.insert(0, frame_col, range(len(df)))
         df.set_index(frame_col, drop=False, inplace=True)
+        if add_position and 'x' in df.columns:
+            df['position'] = [(x, y) for x, y in zip(df['x'], df['y'])]
         data = df.to_dict()
     return data
 
