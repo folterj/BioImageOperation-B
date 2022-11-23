@@ -1,28 +1,22 @@
-import os.path
+import os
 
-from src.file.bio import import_tracks_by_frame
-from src.util import get_filetitle, get_filetitle_replace, get_input_files, filter_output_files
+from src.file.generic import import_file
+from src.util import get_filetitle_replace, get_input_files, filter_output_files
 from src.video import annotate_videos
 
 
-def annotate_merge_videos(input_files, video_files, video_output, frame_interval):
+def annotate_merge_videos(input_files, video_files, video_output, frame_interval=1, show_labels=[]):
     print('Reading relabelled data')
     all_datas = {}
     for video_file in video_files:
-        video_datas = {}
         video_title = get_filetitle_replace(video_file)
+        datas = {}
         for filename in input_files:
             if video_title in filename or len(input_files) == 1 or len(video_files) == 1:
-                title = get_filetitle(filename)
-                data, has_id = import_tracks_by_frame(filename)
-                if has_id:
-                    video_datas = data
-                else:
-                    label = title.rsplit('_')[-1]
-                    video_datas[label] = data
-        all_datas[video_title] = video_datas
+                datas |= import_file(filename, add_position=True)
+        all_datas[video_title] = datas
     print('Creating annotated video')
-    annotate_videos(video_files, video_output, all_datas, frame_interval=frame_interval)
+    annotate_videos(video_files, video_output, all_datas, frame_interval=frame_interval, show_labels=show_labels)
 
 
 def run(all_params, params):
@@ -36,4 +30,5 @@ def run(all_params, params):
         raise ValueError('Missing video files')
     video_output_path = os.path.join(base_dir, params['video_output'])
     frame_interval = params.get('frame_interval', 1)
-    annotate_merge_videos(input_files, video_files, video_output_path, frame_interval)
+    show_labels = params.get('show_labels', [])
+    annotate_merge_videos(input_files, video_files, video_output_path, frame_interval, show_labels)

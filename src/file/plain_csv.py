@@ -17,8 +17,6 @@ def import_csv(filename, add_position=False):
                 id_cols.append(columni)
             if column.lower() == 'frame':
                 frame_cols.append(columni)
-        has_id = (len(id_cols) > 0)
-        has_frame = (len(frame_cols) > 0)
         columns = []
         for column0 in columns0:
             column = column0
@@ -32,17 +30,16 @@ def import_csv(filename, add_position=False):
                     i += 1
             columns.append(column.lower())
     df = pd.read_csv(filename, names=columns, skiprows=1)
-    if has_id:
+    if len(id_cols) > 0:
         ids = set()
         for id_col in id_cols:
             for value in df[columns[id_col]]:
                 if not math.isnan(value):
                     ids.add(int(value))
         for id in ids:
-            data[str(id)] = {}
             for id_col in id_cols:
                 col_name = columns[id_col]
-                id_df = df[df[col_name] == id]
+                id_df = df[df[col_name] == id].copy()
                 parts = col_name.rsplit('_', 1)
                 label_set = parts[-1]
                 if str.isnumeric(label_set):
@@ -55,26 +52,27 @@ def import_csv(filename, add_position=False):
                             else:
                                 id_df = id_df.drop(columns=col)
                 if len(id_df) > 0:
-                    if has_frame:
-                        frame_col = columns[frame_cols[0]]
+                    id_dict = dataframe_to_frame_dict(id_df, columns, frame_cols, add_position=add_position)
+                    if not str(id) in data:
+                        data[str(id)] = id_dict
                     else:
-                        frame_col = 'frame'
-                        id_df.insert(0, frame_col, range(len(id_df)))
-                    id_df.set_index(frame_col, drop=False, inplace=True)
-                    if add_position and 'x' in id_df.columns:
-                        id_df['position'] = [(x, y) for x, y in zip(id_df['x'], id_df['y'])]
-                    data[str(id)] |= id_df.to_dict()
+                        for key, value in id_dict.items():
+                            data[str(id)][key] = dict(sorted((data[str(id)][key] | value).items()))
     else:
-        if has_frame:
-            frame_col = columns[frame_cols[0]]
-        else:
-            frame_col = 'frame'
-            df.insert(0, frame_col, range(len(df)))
-        df.set_index(frame_col, drop=False, inplace=True)
-        if add_position and 'x' in df.columns:
-            df['position'] = [(x, y) for x, y in zip(df['x'], df['y'])]
-        data = df.to_dict()
+        data = dataframe_to_frame_dict(df, columns, frame_cols, add_position=add_position)
     return data
+
+
+def dataframe_to_frame_dict(df, columns, frame_cols=[], add_position=False):
+    if len(frame_cols) > 0:
+        frame_col = columns[frame_cols[0]]
+    else:
+        frame_col = 'frame'
+        df.insert(0, frame_col, range(len(df)))
+    df.set_index(frame_col, drop=False, inplace=True)
+    if add_position and 'x' in df.columns:
+        df['position'] = [(x, y) for x, y in zip(df['x'], df['y'])]
+    return df.to_dict()
 
 
 def export_csv(infilename, outfilename, headers, data):

@@ -1,3 +1,4 @@
+import colorsys
 import glob
 import math
 import os
@@ -151,3 +152,36 @@ def get_input_stats(input_files):
 
 def numeric_string_sort(items):
     return sorted(items, key=lambda item: list(map(int, re.findall(r'\d+', item))))
+
+
+def create_color_table(n):
+    colors = []
+    h = 0
+    l = 0.5
+    for i in range(n):
+        colors.append(normalize_lightness(colorsys.hsv_to_rgb(h, 1, 1), l))
+        h = math.fmod(h + 251 / 360, 1)
+        l -= 0.22
+        if l < 0.2:
+            l += 0.6
+    return colors
+
+
+def normalize_lightness(color, level):
+    r, g, b = color
+    level0 = 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
+    if level0 != 0:
+        f = level / level0
+        if f > 1:
+            r = 1 - (1 - r) / f
+            g = 1 - (1 - g) / f
+            b = 1 - (1 - b) / f
+        else:
+            r *= f
+            g *= f
+            b *= f
+    return r, g, b
+
+
+def color_float_to_cv(rgb):
+    return int(rgb[2] * 255), int(rgb[1] * 255), int(rgb[0] * 255)

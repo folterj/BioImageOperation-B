@@ -2,12 +2,13 @@ import cv2 as cv
 import numpy as np
 from tqdm import tqdm
 
-from src.util import get_filetitle_replace
+from src.util import get_filetitle_replace, create_color_table, color_float_to_cv
 
 
-def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1):
+def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_labels=[]):
     width, height, nframes, fps = video_info(video_infiles[0])
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
+    colors = create_color_table(1000)
 
     for video_infile in tqdm(video_infiles):
         title = get_filetitle_replace(video_infile)
@@ -21,10 +22,13 @@ def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1):
                 ok, video_frame = vidcap.read()
                 if ok:
                     if framei % frame_interval == 0:
+                        if 'frame' in show_labels:
+                            draw_text_abs(video_frame, str(framei), (width // 2, height // 2), scale=2, thickness=2)
                         for label, data in video_datas.items():
-                            if framei in data['x']:
-                                position = (int(round(data['x'][framei])), int(round(data['y'][framei])))
-                                draw_annotation(video_frame, label, position)
+                            if framei in data['position']:
+                                position = tuple(np.int0(data['position'][framei]))
+                                color = color_float_to_cv(colors[int(label) % len(colors)])
+                                draw_annotation(video_frame, label, position, color=color)
                         vidwriter.write(video_frame)
             framei += 1
         vidcap.release()

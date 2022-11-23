@@ -9,7 +9,7 @@ from src.BioData import BioData
 from src.BioFeatures import create_biofeatures
 from src.VideoInfo import VideoInfos
 from src.file.bio import export_tracks
-from src.file.plain_csv import import_csv
+from src.file.generic import import_file
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
     calc_mean_dist
 
@@ -19,7 +19,7 @@ class Relabeller():
         self.method = method
         self.max_relabel_match_distance = max_relabel_match_distance
         if annotation_filename != '':
-            self.annotations = import_csv(annotation_filename, add_position=True)
+            self.annotations = import_file(annotation_filename, add_position=True)
 
     def relabel_all(self, data_files, tracks_relabel_dir, video_files):
         video_infos = VideoInfos(video_files)
@@ -119,7 +119,12 @@ class Relabeller():
         final_matches = {}
         matches = {}
         datas = create_biofeatures(data_files)
-        available_tracks = [data.id for data in datas]
+        data_dict = {data.id: data for data in datas}
+        available_tracks = list(data_dict)
+        position_factor = self.calc_position_factor(data_dict)
+        for data in datas:
+            data.position.update((frame, (position[0] * position_factor, position[1] * position_factor))
+                                 for frame, position in data.position.items())
         for annotation, gt_values in self.annotations.items():
             distances = {}
             for data in datas:
@@ -130,7 +135,7 @@ class Relabeller():
         distances = []
         for gt_id, matches1 in matches.items():
             for label, dist in matches1.items():
-                if label in available_tracks:   # and dist <= self.max_relabel_match_distance:
+                if label in available_tracks:
                     final_matches[gt_id] = label
                     available_tracks.remove(label)
                     distances.append(dist)
@@ -139,34 +144,37 @@ class Relabeller():
         print(f'#Matches: {len(final_matches)}')
         mean_dist = np.mean(distances)
         print(f'Mean distance: {mean_dist:.1f}')
-        match_rate, min_dist = self.get_match_rate(final_matches, datas)
+        match_rate, match_dist = self.get_match_rate(final_matches, data_dict)
         print(f'Match rate: {match_rate:.3f}')
-        print(f'Minimum match distance (mean): {min_dist:.1f}')
+        print(f'Mean match distance: {match_dist:.1f}')
 
         save_files(final_matches, data_files, tracks_relabel_dir)
 
-    def get_match_rate(self, matches, datas):
-        correct = []
-        min_dists = []
+    def get_match_rate(self, matches, data_dict):
+        distances = []
+        nmatches = 0
+        total = 0
         for gt_id, track_id in matches.items():
-            positions1 = []
-            for data in datas:
-                if data.id == track_id:
-                    positions1 = data.position
-            for frame in positions1:
-                min_dist = None
-                gt_id1 = None
-                for gt_id0, values0 in self.annotations.items():
-                    if frame in values0['x']:
-                        dist = calc_dist(values0['position'][frame], positions1[frame])
-                        if min_dist is None or dist < min_dist:
-                            min_dist = dist
-                            gt_id1 = gt_id0
-                correct.append(gt_id1 == gt_id)
-                if min_dist is not None:
-                    min_dists.append(min_dist)
-        match_rate = np.mean(correct)
-        return match_rate, np.mean(min_dists)
+            positions0 = self.annotations[gt_id]['position']
+            positions1 = data_dict[track_id].position
+            for frame in positions0:
+                if frame in positions1:
+                    dist = calc_dist(positions0[frame], positions1[frame])
+                    if dist <= self.max_relabel_match_distance:
+                        nmatches += 1
+                    distances.append(dist)
+            total += len(positions0)
+        match_rate = nmatches / total
+        return match_rate, np.mean(distances)
+
+    def calc_position_factor(self, data_dict):
+        positions0 = []
+        positions1 = []
+        for annotation in self.annotations.values():
+            positions0.extend(list(annotation['position'].values()))
+        for data in data_dict.values():
+            positions1.extend(list(data.position.values()))
+        return np.mean(np.mean(positions0, 0) / np.mean(positions1, 0))
 
 
 def save_files(matches, data_files, tracks_relabel_dir):
@@ -177,7 +185,7 @@ def save_files(matches, data_files, tracks_relabel_dir):
         parts = basename.split('_')
         if not single_file and len(parts) > 0:
             basename = '_'.join(parts[:-1])
-        datas |= import_csv(data_file)
+        datas |= import_file(data_file)
     for annotation_id, track_id in matches.items():
         data = datas[track_id]
         if 'id' in data:

@@ -1,8 +1,6 @@
-import os
 import numpy as np
 
-from src.file.numpy_format import import_numpy
-from src.file.plain_csv import import_csv
+from src.file.generic import import_file
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
 from src.util import get_filetitle, extract_filename_id_info, isvalid_position
 
@@ -163,11 +161,7 @@ class BioFeatures:
 def create_biofeatures(filenames):
     biofeatures = []
     for filename in filenames:
-        ext = os.path.splitext(filename)[1].lower()
-        if ext.startswith('.np'):
-            data = import_numpy(filename)
-        else:
-            data = import_csv(filename, add_position=True)
+        data = import_file(filename)
         for id, data1 in data.items():
             biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
     return biofeatures
