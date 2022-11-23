@@ -13,9 +13,9 @@ def import_numpy(filename):
         else:
             break
     if num_start is not None:
-        id = int(filebase[num_start:])
+        id = filebase[num_start:]
     else:
-        id = 0
+        id = '0'
     data[id] = {}
 
     npfile = np.load(filename)
