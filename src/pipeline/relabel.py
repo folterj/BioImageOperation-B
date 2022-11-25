@@ -15,9 +15,10 @@ from src.util import get_bio_base_name, get_input_files, numeric_string_sort, fi
 
 
 class Relabeller():
-    def __init__(self, method, annotation_filename='', max_relabel_match_distance=0):
-        self.method = method
-        self.max_relabel_match_distance = max_relabel_match_distance
+    def __init__(self, params, annotation_filename):
+        self.method = params['method']
+        self.input_pixel_size = params['input_pixel_size']
+        self.max_relabel_match_distance = params.get('max_relabel_match_distance', 0)
         if annotation_filename != '':
             self.annotations = import_file(annotation_filename, add_position=True)
 
@@ -93,15 +94,6 @@ class Relabeller():
             else:
                 print(f'Label: {label} Coverage: {total_coverage} frames')
 
-    def get_best_label_from_file(self, filename):
-        data = BioData(filename)
-        new_label, _ = self.get_near_label(data)
-        new_title = data.old_title
-        if new_title.endswith(data.old_label):
-            new_title = new_title.rstrip(data.old_label)
-        new_title += new_label
-        return new_label, new_title, data.old_label, data.old_title
-
     def get_near_label(self, data):
         mindist = None
         label = None
@@ -121,10 +113,11 @@ class Relabeller():
         datas = create_biofeatures(data_files)
         data_dict = {data.id: data for data in datas}
         available_tracks = list(data_dict)
-        position_factor = self.calc_position_factor(data_dict)
-        for data in datas:
-            data.position.update((frame, (position[0] * position_factor, position[1] * position_factor))
-                                 for frame, position in data.position.items())
+        position_factor = 1 / self.input_pixel_size
+        if position_factor != 1:
+            for data in datas:
+                data.position.update((frame, (position[0] * position_factor, position[1] * position_factor))
+                                     for frame, position in data.position.items())
         for annotation, gt_values in self.annotations.items():
             distances = {}
             for data in datas:
@@ -166,15 +159,6 @@ class Relabeller():
             total += len(positions0)
         match_rate = nmatches / total
         return match_rate, np.mean(distances)
-
-    def calc_position_factor(self, data_dict):
-        positions0 = []
-        positions1 = []
-        for annotation in self.annotations.values():
-            positions0.extend(list(annotation['position'].values()))
-        for data in data_dict.values():
-            positions1.extend(list(data.position.values()))
-        return np.mean(np.mean(positions0, 0) / np.mean(positions1, 0))
 
 
 def save_files(matches, data_files, tracks_relabel_dir):
@@ -225,10 +209,9 @@ def run(all_params, params):
     annotation_filename = os.path.join(base_dir, params.get('annotation_filename', ''))
     annotation_image_filename = os.path.join(base_dir, params.get('annotation_image', ''))
     annotation_margin = params.get('annotation_margin', 0)
-    max_relabel_match_distance = params.get('max_relabel_match_distance', 0)
 
     if method.lower() == 'annotation':
         annotate(annotation_image_filename, annotation_filename, annotation_margin)
 
-    relabeller = Relabeller(method, annotation_filename, max_relabel_match_distance)
+    relabeller = Relabeller(params, annotation_filename)
     relabeller.relabel_all(input_files, output_dir, video_files)

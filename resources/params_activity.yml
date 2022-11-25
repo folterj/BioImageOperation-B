@@ -1,5 +1,5 @@
 general:
-  base_dir: E:/Video/test
+  base_dir: E:/Video/test0
   input: tracks_relabel/*.csv
   video_input: '*.mp4'
   # add_missing: add null entries for missing data (time points and/or tracked ids)
@@ -9,17 +9,17 @@ operations:
   - relabel:
       method: annotation
       input: tracks/*.csv
-      output: tracks_relabel
       annotation_image: back.png
       annotation_filename: annotations.csv
       # annotation_margin: used when manually annotating image with corresponding labels; margin for selecting/removing existing annotation [pixels]
       annotation_margin: 10
       # max_relabel_match_distance: maximum distance between mean tracked position and matching annotated position [pixels]
       max_relabel_match_distance: 100
+      output: tracks_relabel
 
   - relabel_video:
-      video_output: annotated.mp4
       frame_interval: 100
+      video_output: annotated.mp4
 
   - extract_features:
       - profiles:

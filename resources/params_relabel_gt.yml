@@ -5,20 +5,22 @@ general:
   add_missing: False
 
 operations:
-  - relabel_video:
-      input: video_example_100fish_1min.csv
-      video_output: annotated_gt.mp4
-      frame_interval: 1
+  #- relabel_video:
+  #    input: video_example_100fish_1min.csv
+  #    frame_interval: 1
+  #    video_output: annotated_gt.mp4
 
   - relabel:
       method: gt
-      input: tracks/*.csv
-      output: tracks_relabel
+      input: tracks_single/*.csv
+      # input_pixel_size: pixel size used in input files (optional)
+      input_pixel_size: 1
       annotation_filename: video_example_100fish_1min.csv
-      # max_relabel_match_distance: maximum distance between mean tracked position and matching annotated position [pixels]
+      # max_relabel_match_distance: maximum distance between tracked position and matching annotated position [pixels]
       max_relabel_match_distance: 100
+      output: tracks_relabel
 
   - relabel_video:
       input: tracks_relabel/*.csv
+      frame_interval: 1
       video_output: annotated.mp4
-      frame_interval: 100

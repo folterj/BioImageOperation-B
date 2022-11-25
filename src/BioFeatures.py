@@ -35,8 +35,7 @@ class BioFeatures:
             self.frames = list(self.data['x'].keys())
         self.frames = np.int0(self.frames)
         self.n = len(self.frames)
-        self.position = {frame: (x, y) for frame, x, y in zip(self.frames, self.data['x'].values(), self.data['y'].values())
-                         if isvalid_position((x, y))}
+        self.position = self.data['position']
         if 'length_major1' in self.data:
             length_major = self.data['length_major1']
             length_minor = self.data['length_minor1']
@@ -161,7 +160,7 @@ class BioFeatures:
 def create_biofeatures(filenames):
     biofeatures = []
     for filename in filenames:
-        data = import_file(filename)
+        data = import_file(filename, add_position=True)
         for id, data1 in data.items():
             biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
     return biofeatures

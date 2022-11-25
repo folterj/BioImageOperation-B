@@ -3,7 +3,7 @@ import math
 import pandas as pd
 
 
-def import_csv(filename, add_position=False):
+def import_csv(filename):
     # dict[id][frame]
     # (id/frame can be None)
     data = {}
@@ -52,26 +52,24 @@ def import_csv(filename, add_position=False):
                             else:
                                 id_df = id_df.drop(columns=col)
                 if len(id_df) > 0:
-                    id_dict = dataframe_to_frame_dict(id_df, columns, frame_cols, add_position=add_position)
+                    id_dict = dataframe_to_frame_dict(id_df, columns, frame_cols)
                     if not str(id) in data:
                         data[str(id)] = id_dict
                     else:
                         for key, value in id_dict.items():
                             data[str(id)][key] = dict(sorted((data[str(id)][key] | value).items()))
     else:
-        data = dataframe_to_frame_dict(df, columns, frame_cols, add_position=add_position)
+        data['0'] = dataframe_to_frame_dict(df, columns, frame_cols)
     return data
 
 
-def dataframe_to_frame_dict(df, columns, frame_cols=[], add_position=False):
+def dataframe_to_frame_dict(df, columns, frame_cols=[]):
     if len(frame_cols) > 0:
         frame_col = columns[frame_cols[0]]
     else:
         frame_col = 'frame'
         df.insert(0, frame_col, range(len(df)))
     df.set_index(frame_col, drop=False, inplace=True)
-    if add_position and 'x' in df.columns:
-        df['position'] = [(x, y) for x, y in zip(df['x'], df['y'])]
     return df.to_dict()
 
 
