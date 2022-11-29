@@ -37,21 +37,22 @@ def import_csv(filename):
                 if not math.isnan(value):
                     ids.add(int(value))
         for id in ids:
+            # check all id columns for specified id
             for id_col in id_cols:
                 col_name = columns[id_col]
                 id_df = df[df[col_name] == id].copy()
-                parts = col_name.rsplit('_', 1)
-                label_set = parts[-1]
-                if str.isnumeric(label_set):
-                    # filter column names
-                    for col in list(id_df.columns):
-                        parts = col.rsplit('_', 1)
-                        if str.isnumeric(parts[-1]):
-                            if parts[-1] == label_set:
-                                id_df.columns = id_df.columns.str.replace(col, parts[0])
-                            else:
-                                id_df = id_df.drop(columns=col)
                 if len(id_df) > 0:
+                    parts = col_name.rsplit('_', 1)
+                    label_set = parts[-1]
+                    if str.isnumeric(label_set):
+                        # filter column names
+                        for col in list(id_df.columns):
+                            parts = col.rsplit('_', 1)
+                            if str.isnumeric(parts[-1]):
+                                if parts[-1] == label_set:
+                                    id_df.columns = id_df.columns.str.replace(col, parts[0])
+                                else:
+                                    id_df = id_df.drop(columns=col)
                     id_dict = dataframe_to_frame_dict(id_df, columns, frame_cols)
                     if not str(id) in data:
                         data[str(id)] = id_dict
