@@ -74,17 +74,25 @@ def dataframe_to_frame_dict(df, columns, frame_cols=[]):
     return df.to_dict()
 
 
-def export_csv(infilename, outfilename, headers, data):
-    with open(infilename) as infile:
-        reader = csv.reader(infile)
-        headers0 = next(reader)
-        with open(outfilename, 'w', newline='') as outfile:
-            writer = csv.writer(outfile)
-            writer.writerow(headers0 + headers)
-            for row in reader:
-                frame = int(row[0])
-                add = []
-                for data_row in data:
-                    if frame in data_row:
-                        add.append(data_row[frame])
-                writer.writerow(row + add)
+def export_csv(filename, data):
+    values = []
+    columns = list(data[next(iter(data))])
+    if 'frame' in columns:
+        frame_col = 'frame'
+    elif 'x' in columns:
+        frame_col = 'x'
+    else:
+        frame_col = columns[0]
+    has_id = ('id' in columns or 'track_label' in columns)
+    if not has_id:
+        columns.insert(0, 'id')
+    for id, value in data.items():
+        for frame in value[frame_col]:
+            row = [value[col][frame] for col in list(value)]
+            if not has_id:
+                row.insert(0, id)
+            values.append(row)
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(columns)
+        writer.writerows(values)

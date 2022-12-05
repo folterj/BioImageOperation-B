@@ -19,3 +19,4 @@ if __name__ == '__main__':
         module = import_module(f'src.pipeline.{operation}')
         print(f'[Operation: {operation}]')
         module.run(params, operation0[operation])
+    print('All operations completed')

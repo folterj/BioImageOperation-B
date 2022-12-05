@@ -10,14 +10,15 @@ from src.BioFeatures import create_biofeatures
 from src.VideoInfo import VideoInfos
 from src.file.bio import export_tracks
 from src.file.generic import import_file
+from src.file.plain_csv import export_csv
 from src.util import get_bio_base_name, get_input_files, numeric_string_sort, filter_output_files, calc_dist, \
     calc_mean_dist
 
 
 class Relabeller():
-    def __init__(self, params, annotation_filename):
+    def __init__(self, params, annotation_filename=''):
         self.method = params['method']
-        self.input_pixel_size = params['input_pixel_size']
+        self.input_pixel_size = params.get('input_pixel_size', 1)
         self.max_relabel_match_distance = params.get('max_relabel_match_distance', 0)
         if annotation_filename != '':
             self.annotations = import_file(annotation_filename, add_position=True)
@@ -52,43 +53,39 @@ class Relabeller():
         datas = []
         for data_file in data_files:
             data = BioData(data_file)
-            pref_label, pref_label_dist = self.get_near_label(data)
-            if pref_label is not None:
-                data.pref_label, data.pref_label_dist = pref_label, pref_label_dist
+            best_label, best_dist = self.get_near_label(data)
+            if best_label is not None:
+                data.set_new_label(best_label, best_dist)
                 datas.append(data)
 
         self.save_data_files(datas, tracks_relabel_dir, video_info)
 
     def save_data_files(self, datas, tracks_relabel_dir, video_info):
         for label in self.annotations:
-            datas1 = [data for data in datas if data.pref_label == label]
+            datas1 = [data for data in datas if data.new_label == label]
             all_frames = []
             for data in datas1:
                 all_frames.extend(data.frames)
             all_frames = sorted(set(all_frames))
-            datas1.sort(key=lambda data: data.pref_label_dist)
-            lines = {}
+            datas1.sort(key=lambda data: data.match_dist)
+            frames_data = {}
             total_coverage = 0
             for frame in all_frames:
                 for data in datas1:
-                    if frame in data.frames:
+                    frame_data = data.get_frame_data(frame)
+                    if frame_data is not None:
                         total_coverage += 1
-                        lines[frame] = data.lines[frame]
-                        break
+                        if len(frames_data) == 0:
+                            frames_data = frame_data
+                        else:
+                            for key, value in frame_data.items():
+                                frames_data[key] |= value
 
-            if len(lines) > 0:
+            if len(frames_data) > 0:
                 data1 = datas1[0]
-                filename = data1.filename
-                extension = os.path.splitext(filename)[1]
-                new_title = data1.old_title
-                if new_title.endswith(data1.old_label):
-                    new_title = new_title.rstrip(data1.old_label)
-                new_title += label
-                new_filename = os.path.join(tracks_relabel_dir, new_title + extension)
-                with open(new_filename, 'w') as outfile:
-                    outfile.write(data1.header)
-                    for line in lines.values():
-                        outfile.write(line)
+                extension = os.path.splitext(data1.filename)[1]
+                new_filename = os.path.join(tracks_relabel_dir, data1.new_title + extension)
+                export_csv(new_filename, {label: frames_data})
             if video_info is not None:
                 print(f'Label: {label} Coverage: {total_coverage / video_info.total_frames * 100:0.1f}%')
             else:
@@ -97,11 +94,14 @@ class Relabeller():
     def get_near_label(self, data):
         mindist = None
         label = None
-        for annotation, position in self.annotations.items():
+        for annotation_id, annotation in self.annotations.items():
+            position = annotation['position']
+            if isinstance(position, dict):
+                position = position[0]
             dist = calc_dist((data.meanx, data.meany), position)
             if mindist is None or dist < mindist:
                 mindist = dist
-                label = annotation
+                label = annotation_id
         if mindist is None or 0 < self.max_relabel_match_distance < mindist:
             # closest is too far away; disqualify
             return None, None
@@ -138,7 +138,7 @@ class Relabeller():
         mean_dist = np.mean(distances)
         print(f'Mean distance: {mean_dist:.1f}')
         match_rate, match_dist = self.get_match_rate(final_matches, data_dict)
-        print(f'Match rate: {match_rate:.3f}')
+        print(f'Match rate: {match_rate:.4f}')
         print(f'Mean match distance: {match_dist:.1f}')
 
         save_files(final_matches, data_files, tracks_relabel_dir)
@@ -187,6 +187,7 @@ def annotate(annotation_image_filename, annotation_filename, annotation_margin):
     image = cv.imread(annotation_image_filename)
     if image is None:
         raise OSError(f'File not found: {annotation_image_filename}')
+    print('User action: Review annotations (press ESC when finished)')
     annotator = AnnotationView(image, annotation_filename, annotation_margin)
     annotator.show_loop()
     annotator.close()
@@ -206,8 +207,12 @@ def run(all_params, params):
     else:
         [os.remove(file) for file in glob.glob(os.path.join(output_dir, '*'))]
 
-    annotation_filename = os.path.join(base_dir, params.get('annotation_filename', ''))
-    annotation_image_filename = os.path.join(base_dir, params.get('annotation_image', ''))
+    annotation_filename = params.get('annotation_filename', '')
+    if annotation_filename != '':
+        annotation_filename = os.path.join(base_dir, annotation_filename)
+    annotation_image_filename = params.get('annotation_image', '')
+    if annotation_image_filename != '':
+        annotation_image_filename = os.path.join(base_dir, annotation_image_filename)
     annotation_margin = params.get('annotation_margin', 0)
 
     if method.lower() == 'annotation':

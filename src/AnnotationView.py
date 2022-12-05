@@ -2,7 +2,8 @@ import cv2 as cv
 import tkinter as tk
 from tkinter import simpledialog
 
-from src.file.annotations import load_annotations, save_annotations
+from src.file.generic import import_file
+from src.file.plain_csv import export_csv
 from src.util import calc_dist
 
 
@@ -12,7 +13,8 @@ class AnnotationView(object):
         self.annotation_filename = annotation_filename
         self.annotation_margin = annotation_margin
         self.window_name = window_name
-        self.annotations = load_annotations(self.annotation_filename)
+        annotations = import_file(self.annotation_filename)
+        self.annotations = {key: (value['x'][0], value['y'][0]) for key, value in annotations.items()}
 
         self.tk_root = tk.Tk()
         self.tk_root.overrideredirect(1)
@@ -29,8 +31,8 @@ class AnnotationView(object):
         self.show()
 
     def draw_annotation(self, annotation):
-        label, position = annotation
-        position = (int(position[0]), int(position[1]))
+        label, data = annotation
+        position = (int(data[0]), int(data[1]))
         fontface = cv.FONT_HERSHEY_SIMPLEX
         scale = 1
         thickness = 1
@@ -85,7 +87,8 @@ class AnnotationView(object):
                 self.redraw()
 
     def save(self):
-        save_annotations(self.annotation_filename, self.annotations)
+        data = {id: {'x': {0: position[0]}, 'y': {0: position[1]}} for id, position in self.annotations.items()}
+        export_csv(self.annotation_filename, data)
 
     def key_press(self, key):
         if key == ord('s'):
