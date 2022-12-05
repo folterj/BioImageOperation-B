@@ -23,10 +23,10 @@ class BioData:
 
         self.x = data['x']
         self.y = data['y']
-        self.meanx = np.mean(list(data['x'].values()))
-        self.meany = np.mean(list(data['y'].values()))
-        self.meanarea = np.mean(list(data['area'].values()))
-        self.meanlength = np.mean(list(data['length_major'].values()))
+        self.meanx = self.get_mean_feature('x')
+        self.meany = self.get_mean_feature('y')
+        self.meanarea = self.get_mean_feature('area')
+        self.meanlength = self.get_mean_feature('length_major')
         lines = open(filename).readlines()
         self.header = lines[0]
         self.lines = {frame: line for frame, line in zip(self.frames, lines[1:])}
@@ -35,13 +35,16 @@ class BioData:
         self.new_label = None
         self.match_dist = None
 
+    def get_mean_feature(self, feature):
+        return np.mean(list(self.data[feature].values()))
+
     def get_frame_data(self, frame):
         if frame in self.frames:
             return {key: {frame: values[frame]} for key, values in self.data.items()}
         else:
             return None
 
-    def set_new_label(self, label, match_dist):
+    def set_new_label(self, label, match_dist=0):
         self.new_label = label
         self.match_dist = match_dist
         self.data['track_label'] = {frame: label for frame in self.data['track_label'].keys()}

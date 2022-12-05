@@ -42,11 +42,6 @@ class BioFeatures:
             self.meanl = np.mean(list(length_major.values()))
             self.meanw = np.mean(list(length_minor.values()))
 
-    def get_mean_feature(self, feature):
-        if not self.has_data:
-            return 0
-        return np.mean(list(self.data[feature].values()))
-
     def calc_profiles(self):
         if not self.has_data:
             return

@@ -1,6 +1,5 @@
 import glob
 import os.path
-import shutil
 import cv2 as cv
 import numpy as np
 
@@ -39,14 +38,15 @@ class Relabeller():
 
     def relabel_sort(self, data_files, tracks_relabel_dir, video_info):
         sort_key = self.method.split()[-1]
-        datas = create_biofeatures(data_files)
+        datas = [BioData(data_file) for data_file in data_files]
         values = [data.get_mean_feature(sort_key) for data in datas]
         datas = [data for value, data in sorted(zip(values, datas), reverse=True)]
-        for new_label, data in enumerate(datas):
-            data.pref_label = new_label
+        for new_label0, data in enumerate(datas):
+            new_label = str(new_label0)
+            data.set_new_label(new_label)
             filename, extension = os.path.splitext(os.path.basename(data.filename))
-            new_filename = os.path.join(tracks_relabel_dir, filename.rsplit('_', 1)[0] + '_' + str(new_label) + extension)
-            shutil.copy2(data.filename, new_filename)
+            new_filename = os.path.join(tracks_relabel_dir, filename.rsplit('_', 1)[0] + '_' + new_label + extension)
+            export_csv(new_filename, {new_label: data.data})
 
     def relabel_annotation(self, data_files, tracks_relabel_dir, video_info):
         # Reading labels & find nearest
