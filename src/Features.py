@@ -1,16 +1,20 @@
+import math
 import numpy as np
+import os
 
 from src.file.generic import import_file
+from src.file.plain_csv import export_csv
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
-from src.util import get_filetitle, extract_filename_id_info, isvalid_position
+from src.util import get_filetitle, extract_filename_id_info, isvalid_position, create_window
 
 
-class BioFeatures:
-    def __init__(self, data=None, filename=None, info=None, id=None):
+class Features:
+    def __init__(self, data=None, filename=None, info=None, id=None, window_size=1):
         self.data = data
         self.filename = filename
         self.info = info
         self.id = id
+        self.window_size = window_size
         if self.filename is not None:
             self.filetitle = get_filetitle(filename)
             id_info = extract_filename_id_info(self.filename)
@@ -28,17 +32,43 @@ class BioFeatures:
     def calc_basic(self):
         if not self.has_data:
             return
-        self.dtime = np.mean(np.diff(list(self.data['time'].values())))
+        data = self.data
+        self.dtime = np.mean(np.diff(list(data['time'].values())))
         if 'frame' in self.data:
-            self.frames = list(self.data['frame'].values())
+            self.frames = list(data['frame'].values())
         else:
-            self.frames = list(self.data['x'].keys())
+            self.frames = list(data['x'].keys())
         self.frames = np.int0(self.frames)
         self.n = len(self.frames)
-        self.position = self.data['position']
-        if 'length_major1' in self.data:
-            length_major = self.data['length_major1']
-            length_minor = self.data['length_minor1']
+
+        positions = {}
+        dist = {}
+        window_size = self.window_size
+        if 'position' not in data and 'x' in data:
+            position = None
+            last_position = None
+            for frame, x, y in zip(data['x'].keys(), data['x'].values(), data['y'].values()):
+                if isvalid_position((x, y)):
+                    position = (x, y)
+                    positions[frame] = position
+
+                if 'dist' not in data:
+                    if position is not None:
+                        if last_position is not None:
+                            dist[frame] = math.dist(last_position, position)
+                        last_position = position
+            if 'dist' not in data:
+                data['dist'] = dist
+            data['position'] = positions
+
+        if 'dist1' not in data:
+            data['dist1'] = create_window(self.frames, data['dist'], window_size)
+
+        self.position = data['position']
+
+        if 'length_major1' in data:
+            length_major = data['length_major1']
+            length_minor = data['length_minor1']
             self.meanl = np.mean(list(length_major.values()))
             self.meanw = np.mean(list(length_minor.values()))
 
@@ -49,7 +79,8 @@ class BioFeatures:
         v_angle = np.asarray(list(self.data['v_angle'].values()))
         self.v_norm = v / self.meanl
         self.angle_norm = abs(v_angle) / VANGLE_NORM
-        self.features['v_percentiles'] = {f'v {percentile}% percentile': np.percentile(v, percentile) for percentile in [25, 50, 75]}
+        self.features['v_percentiles'] = {f'v {percentile}% percentile': np.percentile(v, percentile)
+                                          for percentile in [25, 50, 75]}
         self.profiles['v'] = self.calc_loghist(self.v_norm, -2, 2)
         self.profiles['vangle'] = self.calc_loghist(self.angle_norm, -3, 1)
 
@@ -141,7 +172,7 @@ class BioFeatures:
         return self.nactivity
 
     def get_activities_time(self):
-        return {type: self.get_activity_time(type) for type in self.nactivity}
+        return {activity_type: self.get_activity_time(activity_type) for activity_type in self.nactivity}
 
     def get_activity_time(self, type):
         return self.nactivity[type] * self.dtime
@@ -152,10 +183,17 @@ class BioFeatures:
         return self.nactivity[type]
 
 
-def create_biofeatures(filenames):
-    biofeatures = []
+def create_features(filenames, window_size=1):
+    features = []
     for filename in filenames:
-        data = import_file(filename, add_position=True)
+        data = import_file(filename)
         for id, data1 in data.items():
-            biofeatures.append(BioFeatures(data=data1, filename=filename, id=id))
-    return biofeatures
+            features.append(Features(data=data1, filename=filename, id=id, window_size=window_size))
+    return features
+
+
+def write_features(output_folder, features):
+    for feature in features:
+        filetitle = os.path.basename(feature.filetitle) + '.csv'
+        filename = os.path.join(output_folder, filetitle)
+        export_csv(filename, {feature.id: feature.data})

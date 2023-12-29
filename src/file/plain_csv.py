@@ -88,7 +88,7 @@ def export_csv(filename, data):
         columns.insert(0, 'id')
     for id, value in data.items():
         for frame in value[frame_col]:
-            row = [value[col][frame] for col in list(value)]
+            row = [value.get(col, {}).get(frame) for col in list(value)]
             if not has_id:
                 row.insert(0, id)
             values.append(row)

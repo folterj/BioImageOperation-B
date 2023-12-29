@@ -6,7 +6,7 @@ from tqdm import tqdm
 from sys import exit
 
 from src.VideoInfo import VideoInfos
-from src.BioFeatures import BioFeatures, create_biofeatures
+from src.Features import Features, create_features
 from src.util import list_to_str, get_bio_base_name, get_input_files, calc_dist, \
     find_all_filename_infos, get_input_stats, filter_output_files
 
@@ -112,7 +112,7 @@ def run(all_params, params):
     print(get_input_stats(input_files))
 
     print('Reading input files')
-    datas = create_biofeatures(input_files)
+    datas = create_features(input_files)
     if add_missing_data_flag:
         datas = add_missing_data(datas, input_files)
         print(f'Added missing data to total of: {len(datas)}')
@@ -219,7 +219,7 @@ def add_missing_data(datas0, files):
         for id in all_ids:
             id_info = [id] + info
             if not contains_data(datas, id_info):
-                datas.append(BioFeatures(info=info, id=id))
+                datas.append(Features(info=info, id=id))
     return datas
 
 

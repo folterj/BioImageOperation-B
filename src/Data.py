@@ -4,7 +4,7 @@ from src.file.generic import import_file
 from src.util import get_filetitle
 
 
-class BioData:
+class Data:
     def __init__(self, filename):
         self.filename = filename
         data0 = import_file(filename)

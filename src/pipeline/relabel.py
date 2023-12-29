@@ -4,8 +4,8 @@ import cv2 as cv
 import numpy as np
 
 from src.AnnotationView import AnnotationView
-from src.BioData import BioData
-from src.BioFeatures import create_biofeatures
+from src.Data import Data
+from src.Features import create_features
 from src.VideoInfo import VideoInfos
 from src.file.bio import export_tracks
 from src.file.generic import import_file
@@ -38,7 +38,7 @@ class Relabeller():
 
     def relabel_sort(self, data_files, tracks_relabel_dir, video_info):
         sort_key = self.method.split()[-1]
-        datas = [BioData(data_file) for data_file in data_files]
+        datas = [Data(data_file) for data_file in data_files]
         values = [data.get_mean_feature(sort_key) for data in datas]
         datas = [data for value, data in sorted(zip(values, datas), reverse=True)]
         for new_label0, data in enumerate(datas):
@@ -52,7 +52,7 @@ class Relabeller():
         # Reading labels & find nearest
         datas = []
         for data_file in data_files:
-            data = BioData(data_file)
+            data = Data(data_file)
             best_label, best_dist = self.get_near_label(data)
             if best_label is not None:
                 data.set_new_label(best_label, best_dist)
@@ -110,7 +110,7 @@ class Relabeller():
     def relabel_gt(self, data_files, tracks_relabel_dir, video_info):
         final_matches = {}
         matches = {}
-        datas = create_biofeatures(data_files)
+        datas = create_features(data_files)
         data_dict = {data.id: data for data in datas}
         available_tracks = list(data_dict)
         position_factor = 1 / self.input_pixel_size

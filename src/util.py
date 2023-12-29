@@ -1,10 +1,11 @@
+from collections import deque
 import colorsys
+import cv2 as cv
 import glob
 import math
+import numpy as np
 import os
 import re
-import numpy as np
-import cv2 as cv
 
 
 def list_to_str(lst):
@@ -55,6 +56,20 @@ def get_moments_angle(moments):
 def round_significants(a, significant_digits):
     round_decimals = significant_digits - int(np.floor(np.log10(abs(a)))) - 1
     return round(a, round_decimals)
+
+
+def create_window(frames, source, window_size):
+    dest = {}
+    frames_window = deque(maxlen=window_size)
+    window = deque(maxlen=window_size)
+    mean_index = window_size // 2
+    for frame in frames:
+        frames_window.append(frame)
+        window.append(source.get(frame, np.nan))
+        if mean_index < len(frames_window):
+            mean_frame = frames_window[window_size // 2]
+            dest[mean_frame] = np.nanmean(window)
+    return dest
 
 
 def get_filetitle(filename):
