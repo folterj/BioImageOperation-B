@@ -6,6 +6,7 @@ import math
 import numpy as np
 import os
 import re
+from scipy.ndimage import uniform_filter1d
 
 
 def list_to_str(lst):
@@ -58,7 +59,8 @@ def round_significants(a, significant_digits):
     return round(a, round_decimals)
 
 
-def create_window(frames, source, window_size):
+def create_window0(frames, source, window_size):
+    # precise, but much slower
     dest = {}
     frames_window = deque(maxlen=window_size)
     window = deque(maxlen=window_size)
@@ -70,6 +72,13 @@ def create_window(frames, source, window_size):
             mean_frame = frames_window[window_size // 2]
             dest[mean_frame] = np.nanmean(window)
     return dest
+
+
+def create_window(frames, source_dict, window_size):
+    source = [source_dict.get(frame, 0) for frame in frames]
+    dest = uniform_filter1d(source, window_size, mode='nearest')
+    dest_dict = {frame: data for frame, data in zip(frames, dest) if frame in source_dict}
+    return dest_dict
 
 
 def get_filetitle(filename):

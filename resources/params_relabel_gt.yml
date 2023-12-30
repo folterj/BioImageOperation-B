@@ -1,6 +1,9 @@
 general:
   base_dir: D:/Video/HQ videos
   video_input: '*.avi'
+  fps: 1
+  pixel_size: 1
+  window_size: 1s
   # add_missing: add null entries for missing data (time points and/or tracked ids)
   add_missing: False
 

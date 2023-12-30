@@ -6,7 +6,7 @@ from tqdm import tqdm
 from sys import exit
 
 from src.VideoInfo import VideoInfos
-from src.Features import Features, create_features
+from src.Data import Data, create_data
 from src.util import list_to_str, get_bio_base_name, get_input_files, calc_dist, \
     find_all_filename_infos, get_input_stats, filter_output_files
 
@@ -99,6 +99,9 @@ def get_typical_activity(activity, central_frame, frames_range):
 def run(all_params, params):
     general_params = all_params['general']
     base_dir = general_params['base_dir']
+    fps = general_params.get('fps')
+    pixel_size = general_params.get('pixel_size')
+    window_size = str(general_params.get('window_size'))
     add_missing_data_flag = bool(general_params.get('add_missing', False))
 
     input_files = get_input_files(general_params, params, 'input')
@@ -112,7 +115,7 @@ def run(all_params, params):
     print(get_input_stats(input_files))
 
     print('Reading input files')
-    datas = create_features(input_files)
+    datas = create_data(input_files, fps=fps, pixel_size=pixel_size, window_size=window_size)
     if add_missing_data_flag:
         datas = add_missing_data(datas, input_files)
         print(f'Added missing data to total of: {len(datas)}')
@@ -130,7 +133,12 @@ def run(all_params, params):
         print(f'Extracting {feature_type}')
 
         if feature_type == 'profiles':
-            [data.calc_profiles() for data in tqdm(datas)]
+            for data in tqdm(datas):
+                if data.has_data:
+                    data.calc_windows()
+                    data.calc_means()
+                    data.calc_profiles()
+
             for feature in features:
                 output_filename = os.path.join(base_dir, feature_set['output'].format_map({'feature': feature}))
                 header = header_start + list_to_str(datas[0].profiles[feature][1])
@@ -160,7 +168,9 @@ def run(all_params, params):
 
         elif feature_type == 'activity':
             for feature in features:
-                [data.classify_activity(output_type=feature) for data in tqdm(datas)]
+                for data in tqdm(datas):
+                    if data.has_data:
+                        data.classify_activity(output_type=feature)
                 output_filename = os.path.join(base_dir, feature_set['output'].format_map({'feature': feature}))
 
                 activity_types = [key for key in datas[0].get_activities_time().keys() if key != '']
@@ -219,7 +229,7 @@ def add_missing_data(datas0, files):
         for id in all_ids:
             id_info = [id] + info
             if not contains_data(datas, id_info):
-                datas.append(Features(info=info, id=id))
+                datas.append(Data(info=info, id=id))
     return datas
 
 

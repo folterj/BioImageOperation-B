@@ -4,8 +4,7 @@ import cv2 as cv
 import numpy as np
 
 from src.AnnotationView import AnnotationView
-from src.Data import Data
-from src.Features import create_features
+from src.Data import create_data, read_data
 from src.VideoInfo import VideoInfos
 from src.file.bio import export_tracks
 from src.file.generic import import_file
@@ -20,7 +19,7 @@ class Relabeller():
         self.input_pixel_size = params.get('input_pixel_size', 1)
         self.max_relabel_match_distance = params.get('max_relabel_match_distance', 0)
         if annotation_filename != '':
-            self.annotations = import_file(annotation_filename, add_position=True)
+            self.annotations = import_file(annotation_filename)
 
     def relabel_all(self, data_files, tracks_relabel_dir, video_files):
         video_infos = VideoInfos(video_files)
@@ -38,7 +37,7 @@ class Relabeller():
 
     def relabel_sort(self, data_files, tracks_relabel_dir, video_info):
         sort_key = self.method.split()[-1]
-        datas = [Data(data_file) for data_file in data_files]
+        datas = create_data(data_files)
         values = [data.get_mean_feature(sort_key) for data in datas]
         datas = [data for value, data in sorted(zip(values, datas), reverse=True)]
         for new_label0, data in enumerate(datas):
@@ -52,7 +51,8 @@ class Relabeller():
         # Reading labels & find nearest
         datas = []
         for data_file in data_files:
-            data = Data(data_file)
+            data = read_data(data_file)
+            data.calc_means()
             best_label, best_dist = self.get_near_label(data)
             if best_label is not None:
                 data.set_new_label(best_label, best_dist)
@@ -95,7 +95,15 @@ class Relabeller():
         mindist = None
         label = None
         for annotation_id, annotation in self.annotations.items():
-            position = annotation['position']
+            if 'position' in annotation:
+                position = annotation['position']
+            else:
+                x = annotation['x']
+                y = annotation['y']
+                if isinstance(x, dict):
+                    x = x[0]
+                    y = y[0]
+                position = x, y
             if isinstance(position, dict):
                 position = position[0]
             dist = calc_dist((data.meanx, data.meany), position)
@@ -110,7 +118,7 @@ class Relabeller():
     def relabel_gt(self, data_files, tracks_relabel_dir, video_info):
         final_matches = {}
         matches = {}
-        datas = create_features(data_files)
+        datas = create_data(data_files)
         data_dict = {data.id: data for data in datas}
         available_tracks = list(data_dict)
         position_factor = 1 / self.input_pixel_size

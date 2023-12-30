@@ -1,6 +1,6 @@
 import os
 
-from src.file.generic import import_file
+from src.Data import read_data_dict
 from src.util import get_filetitle_replace, get_input_files, filter_output_files
 from src.video import annotate_videos
 
@@ -13,7 +13,7 @@ def annotate_merge_videos(input_files, video_files, video_output, frame_interval
         datas = {}
         for filename in input_files:
             if video_title in filename or len(input_files) == 1 or len(video_files) == 1:
-                datas |= import_file(filename, add_position=True)
+                datas |= read_data_dict(filename)
         all_datas[video_title] = datas
     print('Creating annotated video')
     annotate_videos(video_files, video_output, all_datas, frame_interval=frame_interval, show_labels=show_labels)
