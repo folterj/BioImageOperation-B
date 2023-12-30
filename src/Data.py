@@ -5,7 +5,7 @@ import os
 from src.file.generic import import_file
 from src.file.plain_csv import export_csv
 from src.parameters import PROFILE_HIST_BINS, VANGLE_NORM
-from src.util import get_filetitle, extract_filename_id_info, isvalid_position, create_window
+from src.util import get_filetitle, extract_filename_id_info, isvalid_position, create_window, calc_diff
 
 
 class Data:
@@ -57,9 +57,9 @@ class Data:
         self.new_title = new_title
 
     def calc_basic(self):
-        if not self.has_data:
-            return
         data = self.data
+        pixel_size = self.pixel_size
+        fps = self.fps
         self.dtime = np.mean(np.diff(list(data['time'].values())))
         if 'frame' in self.data:
             self.frames = list(data['frame'].values())
@@ -67,6 +67,10 @@ class Data:
             self.frames = list(data['x'].keys())
         self.frames = np.int0(self.frames)
         self.n = len(self.frames)
+
+        if pixel_size is not None and pixel_size != 1:
+            data['x'] = {frame: value * pixel_size for frame, value in data['x'].items()}
+            data['y'] = {frame: value * pixel_size for frame, value in data['y'].items()}
 
         positions = {}
         dist = {}
@@ -89,7 +93,35 @@ class Data:
             positions = data['position']
         self.position = positions
 
-        #TODO: calc v, a, angle_v, angle_a, using pixel_size etc
+        if pixel_size is not None and pixel_size != 1:
+            data['dist'] = {frame: value * pixel_size for frame, value in data['dist'].items()}
+
+        if 'dist_tot' not in data:
+            dists = {}
+            dist_tot = 0
+            for frame, value in data['dist'].items():
+                dist_tot += value
+                dists[frame] = dist_tot
+            data['dist_tot'] = dists
+
+        if 'dist_origin' not in data:
+            dists = {}
+            origin = None
+            for frame, value in self.position.items():
+                if origin is None:
+                    origin = value
+                dists[frame] = math.dist(value, origin)
+            data['dist_origin'] = dists
+
+        if 'v' not in data and 'dist' in data:
+            data['v'] = {frame: value * fps for frame, value in data['dist'].items()}
+        if 'a' not in data and 'v' in data:
+            data['a'] = calc_diff(data['v'], fps)
+
+        if 'v_angle' not in data and 'angle' in data:
+            data['v_angle'] = calc_diff(data['angle'], fps)
+        if 'a_angle' not in data and 'v_angle' in data:
+            data['a_angle'] = calc_diff(data['v_angle'], fps)
 
     def calc_windows(self):
         if self.window_size.endswith('s'):
@@ -189,43 +221,43 @@ class Data:
             length_minor_delta = abs(lenw - lenw0) / self.meanw
             v_angle_norm = abs(v_angle) / VANGLE_NORM
 
-            type = ''
+            activity_type = ''
             if output_type == 'movement':
                 if v_norm > 3:
-                    type = 'ballistic'
+                    activity_type = 'ballistic'
                 elif abs(v_norm) > 0.6:
                     if v_norm > 0.6 and v_angle_norm < 0.05:
-                        type = 'levi'
+                        activity_type = 'levi'
                     else:
-                        type = 'brownian'
+                        activity_type = 'brownian'
                 else:
-                    type = ''
+                    activity_type = ''
 
             elif output_type == 'activity':
                 if v_norm > 0.2:
-                    type = 'moving'
+                    activity_type = 'moving'
                 elif length_major_delta + length_minor_delta > 0.01:
-                    type = 'appendages'
+                    activity_type = 'appendages'
                 else:
-                    type = ''
+                    activity_type = ''
 
             lenl0 = lenl
             lenw0 = lenw
 
-            self.activity[frame] = type
-            self.nactivity[type] += 1
+            self.activity[frame] = activity_type
+            self.nactivity[activity_type] += 1
         return self.nactivity
 
     def get_activities_time(self):
         return {activity_type: self.get_activity_time(activity_type) for activity_type in self.nactivity}
 
-    def get_activity_time(self, type):
-        return self.nactivity[type] * self.dtime
+    def get_activity_time(self, activity_type):
+        return self.nactivity[activity_type] * self.dtime
 
-    def get_activity_fraction(self, type, total_frames=None):
+    def get_activity_fraction(self, activity_type, total_frames=None):
         if total_frames is not None and total_frames != 0:
-            return self.nactivity[type] / total_frames
-        return self.nactivity[type]
+            return self.nactivity[activity_type] / total_frames
+        return self.nactivity[activity_type]
 
     def __str__(self):
         return f'{self.original_title} {self.new_label}'
@@ -247,14 +279,6 @@ def read_data_dict(filename, fps=1, pixel_size=1, window_size='1s'):
     data_dict = {id: Data(data=data[id], filename=filename, id=id,
                           fps=fps, pixel_size=pixel_size, window_size=window_size)}
     return data_dict
-
-
-def read_data(filename, fps=1, pixel_size=1, window_size='1s'):
-    data0 = import_file(filename)
-    id = next(iter(data0.keys()))
-    data = Data(data=data0[id], filename=filename, id=id,
-                fps=fps, pixel_size=pixel_size, window_size=window_size)
-    return data
 
 
 def write_data(output_folder, all_data):

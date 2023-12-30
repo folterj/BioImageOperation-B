@@ -4,7 +4,7 @@ import cv2 as cv
 import numpy as np
 
 from src.AnnotationView import AnnotationView
-from src.Data import create_data, read_data
+from src.Data import create_data
 from src.VideoInfo import VideoInfos
 from src.file.bio import export_tracks
 from src.file.generic import import_file
@@ -50,8 +50,8 @@ class Relabeller():
     def relabel_annotation(self, data_files, tracks_relabel_dir, video_info):
         # Reading labels & find nearest
         datas = []
-        for data_file in data_files:
-            data = read_data(data_file)
+        datas0 = create_data(data_files)
+        for data in datas0:
             data.calc_means()
             best_label, best_dist = self.get_near_label(data)
             if best_label is not None:

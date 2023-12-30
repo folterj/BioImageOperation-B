@@ -59,6 +59,16 @@ def round_significants(a, significant_digits):
     return round(a, round_decimals)
 
 
+def calc_diff(source, multiplier=1):
+    dest = {}
+    last_value = None
+    for frame, value in source.items():
+        if last_value is not None:
+            dest[frame] = (value - last_value) * multiplier
+        last_value = value
+    return dest
+
+
 def create_window0(frames, source, window_size):
     # precise, but much slower
     dest = {}
@@ -75,7 +85,7 @@ def create_window0(frames, source, window_size):
 
 
 def create_window(frames, source_dict, window_size):
-    source = [source_dict.get(frame, 0) for frame in frames]
+    source = [float(source_dict.get(frame, 0)) for frame in frames]
     dest = uniform_filter1d(source, window_size, mode='nearest')
     dest_dict = {frame: data for frame, data in zip(frames, dest) if frame in source_dict}
     return dest_dict
