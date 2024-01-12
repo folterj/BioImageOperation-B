@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import os
+from tqdm import tqdm
 
 from src.file.generic import import_file
 from src.file.plain_csv import export_csv
@@ -200,9 +201,9 @@ class Data:
 
     def classify_activity(self, output_type):
         self.activity = {}
-        if output_type == 'movement':
+        if output_type == 'movement_type':
             self.nactivity = {'': 0, 'brownian': 0, 'levi': 0, 'ballistic': 0}
-        elif output_type == 'activity':
+        elif output_type == 'movement':
             self.nactivity = {'': 0, 'appendages': 0, 'moving': 0}
         else:
             self.nactivity = {}
@@ -222,7 +223,7 @@ class Data:
             v_angle_norm = abs(v_angle) / VANGLE_NORM
 
             activity_type = ''
-            if output_type == 'movement':
+            if output_type == 'movement_type':
                 if v_norm > 3:
                     activity_type = 'ballistic'
                 elif abs(v_norm) > 0.6:
@@ -233,7 +234,7 @@ class Data:
                 else:
                     activity_type = ''
 
-            elif output_type == 'activity':
+            elif output_type == 'movement':
                 if v_norm > 0.2:
                     activity_type = 'moving'
                 elif length_major_delta + length_minor_delta > 0.01:
@@ -263,9 +264,9 @@ class Data:
         return f'{self.original_title} {self.new_label}'
 
 
-def create_data(filenames, fps=1, pixel_size=1, window_size='1s'):
+def create_datas(filenames, fps=1, pixel_size=1, window_size='1s'):
     all_data = []
-    for filename in filenames:
+    for filename in tqdm(filenames):
         data = import_file(filename)
         for id, data1 in data.items():
             all_data.append(Data(data=data1, filename=filename, id=id,
@@ -273,7 +274,7 @@ def create_data(filenames, fps=1, pixel_size=1, window_size='1s'):
     return all_data
 
 
-def read_data_dict(filename, fps=1, pixel_size=1, window_size='1s'):
+def read_data(filename, fps=1, pixel_size=1, window_size='1s'):
     data = import_file(filename)
     id = next(iter(data.keys()))
     data_dict = {id: Data(data=data[id], filename=filename, id=id,
@@ -281,8 +282,8 @@ def read_data_dict(filename, fps=1, pixel_size=1, window_size='1s'):
     return data_dict
 
 
-def write_data(output_folder, all_data):
-    for data in all_data:
+def write_datas(output_folder, datas):
+    for data in datas:
         filetitle = os.path.basename(data.filetitle) + '.csv'
         filename = os.path.join(output_folder, filetitle)
         export_csv(filename, {data.id: data.data})

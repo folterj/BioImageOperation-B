@@ -30,7 +30,7 @@ operations:
           output: 'profile_{feature}.csv'
       - features:
           features: [v_percentiles]
-          output: features.csv
+          output: 'features.csv'
       - activity:
-          features: [activity]
+          features: [movement]
           output: '{feature}_dataframe.csv'

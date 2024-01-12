@@ -1,0 +1,17 @@
+general:
+  base_dir: E:/Video/Ants/stream
+  input: tracks_test/*.csv
+  video_input: merged.mp4
+  fps: 50
+  pixel_size: 1
+  window_size: 1s
+
+operations:
+  - extract_features:
+      - events:
+          type: path_course_change
+          features: [distance]
+          node_distance: 50
+          distance: 100
+          frame_range: 7
+          output: events.csv

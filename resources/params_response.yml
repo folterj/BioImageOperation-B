@@ -23,10 +23,11 @@ operations:
           features: [v, vangle]
           output: 'profile_{feature}.csv'
       - activity:
-          features: [movement]
+          features: [movement_type]
           output: '{feature}_dataframe.csv'
       - events:
+          type: contact
           features: [n, time, delta_time, activity 0]
-          contact_distance: 10
-          activity_frames_range: 7
+          distance: 10
+          frame_range: 7
           output: events.csv
