@@ -1,8 +1,8 @@
 general:
-  base_dir: E:/Video/Ants/stream
-  input: tracks_test/*.csv
+  base_dir: D:/Video/Ants/stream
+  input: tracks/*.csv
   video_input: merged.mp4
-  fps: 50
+  image_size: [1920, 1080]
   pixel_size: 1
   window_size: 1s
 
@@ -11,7 +11,11 @@ operations:
       - events:
           type: path_course_change
           features: [distance]
-          node_distance: 50
+          node_distance: 5
           distance: 100
           frame_range: 7
-          output: events.csv
+          output: paths/paths_{frame:06}.csv
+          image_output: paths/test_{frame:06}.tiff
+          video_output: paths.mp4
+          video_output_fps: 5
+          frame_interval: 100

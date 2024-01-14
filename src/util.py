@@ -91,6 +91,13 @@ def create_window(frames, source_dict, window_size):
     return dest_dict
 
 
+def ensure_out_path(path):
+    if not os.path.isdir(path):
+        path = os.path.dirname(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
 def get_filetitle(filename):
     return os.path.splitext(os.path.basename(filename))[0]
 

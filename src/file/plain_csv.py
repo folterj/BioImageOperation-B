@@ -1,5 +1,6 @@
 import csv
 import math
+import numpy as np
 import pandas as pd
 
 
@@ -96,3 +97,10 @@ def export_csv(filename, data):
         writer = csv.writer(file)
         writer.writerow(columns)
         writer.writerows(values)
+
+
+def export_csv_simple(filename, data):
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(data.keys())
+        writer.writerows(np.transpose(list(data.values())))

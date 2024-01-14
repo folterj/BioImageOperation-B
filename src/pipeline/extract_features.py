@@ -113,7 +113,7 @@ def run(all_params, params):
                         csvwriter.writerow(row)
 
         elif feature_type == 'events':
-            outputs = extract_events(datas, features, feature_set, fps)
+            outputs = extract_events(datas, features, feature_set, general_params)
             output_filename = os.path.join(base_dir, feature_set['output'])
 
             nheaders = max([len(data.info) for data in datas])
@@ -133,7 +133,7 @@ def run(all_params, params):
         features_done.append(feature_type)
 
 
-def extract_events(datas, features, params, fps):
+def extract_events(datas, features, params, general_params):
     event_type = params['type']
     output = {}
     data_set_infos = list(set(['_'.join(data.info) for data in datas]))
@@ -142,7 +142,7 @@ def extract_events(datas, features, params, fps):
         if 'contact' in event_type:
             output[data_set_info] = extract_contact_events(datas1, features, params)
         elif 'path' in event_type:
-            output[data_set_info] = extract_path_events(datas1, features, params, fps)
+            output[data_set_info] = extract_path_events(datas1, features, params, general_params)
     return output
 
 
