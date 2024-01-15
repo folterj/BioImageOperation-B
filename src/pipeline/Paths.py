@@ -16,18 +16,14 @@ class PathNode:
         self.label = label
         self.position = position
         self.created = time
-        self.tot_use = 0
-        self.last_use = 0
-        self.usage = []
+        self.total_use = 0
 
     def update_use(self, time):
-        self.tot_use += 1
-        self.last_use = time
-        self.usage.append(time)
+        self.total_use += time
 
     def draw(self, image, time):
         power = 3
-        scale = np.sum(self.usage) / (time + 1)
+        scale = self.total_use / (time + 1)
         if scale > 0:
             col_scale = 1 + (math.log10(scale) - 1) / power   # log: 1(E0) ... 1E-[power]
         else:
@@ -39,7 +35,10 @@ class PathNode:
 
     def to_dict(self):
         return {'label': self.label, 'x': self.position[0], 'y': self.position[1],
-                'created': self.created, 'last_use': self.last_use, 'tot_use': self.tot_use, 'usage': np.mean(self.usage)}
+                'created': self.created, 'total_use': self.total_use}
+
+    def __str__(self):
+        return str(self.to_dict())
 
 
 class PathLink:
@@ -52,6 +51,9 @@ class PathLink:
         position1 = np.round(self.node1.position).astype(int)
         position2 = np.round(self.node2.position).astype(int)
         cv.line(image, position1, position2, color, 1, cv.LINE_AA)
+
+    def __str__(self):
+        return str(self.node1) + ' - ' + str(self.node2)
 
 
 class Paths:
@@ -104,7 +106,6 @@ class Paths:
                     last_node = last_track_nodes.get(tracki)
                     node = self.get_node(position, framei, last_node)
                     last_track_nodes[tracki] = node
-                    node.update_use(framei)
             if framei % self.frame_interval == 0:
                 self.save(framei)
                 self.draw(framei)
@@ -127,9 +128,11 @@ class Paths:
             closest_node, distance = self.find_closest_node(position)
             if closest_node is not None and distance < node_distance:
                 node = closest_node
+                node.update_use(time)
 
         if node is None:
             node = self.create_node(position, time, last_node)
+            node.update_use(time)
         return node
 
     def find_closest_node(self, position):
