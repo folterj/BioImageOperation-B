@@ -11,7 +11,7 @@ operations:
       - events:
           type: path_course_change
           features: [distance]
-          node_distance: 5
+          node_distance: 2
           distance: 100
           frame_range: 7
           output: paths/paths_{frame:06}.csv

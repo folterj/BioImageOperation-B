@@ -27,9 +27,9 @@ class PathNode:
 
     def draw(self, image, time):
         power = 3
-        scale = np.mean(self.usage) / (time + 1)
+        scale = np.sum(self.usage) / (time + 1)
         if scale > 0:
-            col_scale = 1 + math.log10(scale) / power   # log: 1(E0) ... 1E-[power]
+            col_scale = 1 + (math.log10(scale) - 1) / power   # log: 1(E0) ... 1E-[power]
         else:
             col_scale = 0
         col_scale = np.clip(col_scale, 0, 1)
