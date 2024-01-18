@@ -35,7 +35,7 @@ class PathLink:
         cv.line(image, position1, position2, color_value, 1, cv.LINE_AA)
 
     def to_dict(self):
-        return {'x1': self.position1[0], 'y1': self.position1[1],
+        return {'label': self.label, 'x1': self.position1[0], 'y1': self.position1[1],
                 'x2': self.position2[0], 'y2': self.position2[1],
                 'created': self.created, 'total_use': self.total_use}
 
@@ -67,8 +67,8 @@ class Paths:
         self.video_output_fps = params['video_output_fps']
         self.frame_interval = params['frame_interval']
 
-        map_size = np.divide(self.image_size, node_distance).astype(int) + 1
-        self.map = np.zeros(np.flip(map_size), dtype=np.float32)
+        self.map_size = np.divide(self.image_size, node_distance).astype(int)
+        self.map = np.zeros(np.flip(self.map_size + 1), dtype=np.float32)
 
         all_frames0 = set()
         min_frame = None
@@ -106,12 +106,21 @@ class Paths:
         if self.vidwriter is not None:
             self.vidwriter.release()
 
+        n = 0
+        for link in self.links.values():
+            if link.used:
+                n += 1
+        print(f'Final path links (used/total): {n}/{len(self.links)}')
+
         return out_features
 
     def update_link(self, last_position, position, time):
         key = str(last_position[0]) + ',' + str(last_position[1]) + '-' + str(position[0]) + ',' + str(position[1])
         link = self.links.get(key)
-        if key not in self.links:
+        if link is None:
+            key_reverse = str(position[0]) + ',' + str(position[1]) + '-' + str(last_position[0]) + ',' + str(last_position[1])
+            link = self.links.get(key_reverse)
+        if link is None:
             self.links[key] = PathLink(self.next_label, last_position, position, time)
             self.next_label += 1
         else:
@@ -135,7 +144,7 @@ class Paths:
             #       link.draw(image, framei)
 
             power = 3
-            image0 = self.map / (framei + 1)
+            image0 = self.map[0:self.map_size[1], 0:self.map_size[0]] / (framei + 1)
             image = 1 + (np.log10(image0, where=image0 > 0) - 2) / power  # log: 1(E0) ... 1E-[power]
             image[image0 == 0] = 0
             image = np.round(np.clip(image, 0, 1) * 255).astype(np.uint8)
@@ -147,5 +156,8 @@ class Paths:
                 imwrite(image_filename, rgb_image)
             if self.video_output is not None:
                 if self.vidwriter is None:
-                    self.vidwriter = cv.VideoWriter(self.video_output, -1, self.video_output_fps, self.image_size)
+                    self.vidwriter = cv.VideoWriter(self.video_output, -1, self.video_output_fps, self.map_size)
+                    print(f'Video created: {self.video_output} '
+                          f'backend: {self.vidwriter.getBackendName()} '
+                          f'open: {self.vidwriter.isOpened()}')
                 self.vidwriter.write(image)
