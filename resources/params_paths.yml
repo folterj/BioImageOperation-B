@@ -15,7 +15,8 @@ operations:
           distance: 100
           frame_range: 7
           output: paths/paths_{frame:06}.csv
-          image_output: paths/test_{frame:06}.tiff
+          raw_image_output: paths/image_raw_{frame:06}.tiff
+          image_output: paths/image_{frame:06}.tiff
           video_output: paths.mp4
-          video_output_fps: 5
+          video_output_fps: 50
           frame_interval: 100

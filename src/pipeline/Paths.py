@@ -3,10 +3,38 @@ from imageio.v3 import imwrite
 import math
 import numpy as np
 import os
+from scipy.spatial.distance import cdist
+from sklearn.neighbors import KDTree
 from tqdm import tqdm
 
 from src.file.plain_csv import export_csv_simple
 from src.util import ensure_out_path
+
+
+class PathNode:
+    def __init__(self, label, position, created):
+        self.label = label
+        self.position = position
+        self.created = created
+        self.total_use = 0
+        self.used = False
+
+    def update_use(self, time):
+        self.total_use += time
+        if not self.used:
+            self.used = True
+
+    def draw(self, image, time):
+        color_value = get_log_color_scale(self.total_use / (time + 1), 3, 0)
+        position = np.round(self.position).astype(int)
+        cv.drawMarker(image, position, color_value, cv.MARKER_CROSS, 2, 1)
+
+    def to_dict(self):
+        return {'label': self.label, 'x': self.position[0], 'y': self.position[1],
+                'created': self.created, 'total_use': self.total_use}
+
+    def __str__(self):
+        return str(self.to_dict())
 
 
 class PathLink:
@@ -23,15 +51,10 @@ class PathLink:
         if not self.used:
             self.used = True
 
-    def draw(self, image, position1, position2, time):
-        power = 3
-        scale = self.total_use / (time + 1)
-        if scale > 0:
-            col_scale = 1 + (math.log10(scale) - 2) / power   # log: 1(E0) ... 1E-[power]
-        else:
-            col_scale = 0
-        col_scale = np.clip(col_scale, 0, 1)
-        color_value = [int(np.round(col_scale * 255))]
+    def draw(self, image, time):
+        color_value = get_log_color_scale(self.total_use / (time + 1), 3)
+        position1 = np.round(self.position1).astype(int)
+        position2 = np.round(self.position2).astype(int)
         cv.line(image, position1, position2, color_value, 1, cv.LINE_AA)
 
     def to_dict(self):
@@ -62,12 +85,15 @@ class Paths:
         ensure_out_path(self.output)
         self.image_output = os.path.join(base_dir, params['image_output'])
         ensure_out_path(self.image_output)
+        self.raw_image_output = os.path.join(base_dir, params['raw_image_output'])
+        ensure_out_path(self.raw_image_output)
         self.video_output = os.path.join(base_dir, params['video_output'])
         ensure_out_path(self.video_output)
         self.video_output_fps = params['video_output_fps']
         self.frame_interval = params['frame_interval']
 
         self.map_size = np.divide(self.image_size, node_distance).astype(int)
+        self.path_image_size = self.map_size
         self.map = np.zeros(np.flip(self.map_size + 1), dtype=np.float32)
 
         all_frames0 = set()
@@ -139,25 +165,51 @@ class Paths:
 
     def draw(self, framei):
         if self.image_output is not None or self.video_output is not None:
-            #for link in self.links:
-            #    if link.used:
-            #       link.draw(image, framei)
-
-            power = 3
-            image0 = self.map[0:self.map_size[1], 0:self.map_size[0]] / (framei + 1)
-            image = 1 + (np.log10(image0, where=image0 > 0) - 2) / power  # log: 1(E0) ... 1E-[power]
-            image[image0 == 0] = 0
-            image = np.round(np.clip(image, 0, 1) * 255).astype(np.uint8)
-            image = cv.applyColorMap(image, cv.COLORMAP_HOT)
-
+            #image = self.draw_paths(framei)
+            raw_image, image = self.draw_map(framei)
             if self.image_output is not None:
                 image_filename = self.image_output.format(frame=framei)
                 rgb_image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
                 imwrite(image_filename, rgb_image)
+            if self.raw_image_output is not None:
+                image_filename = self.raw_image_output.format(frame=framei)
+                imwrite(image_filename, raw_image)
             if self.video_output is not None:
                 if self.vidwriter is None:
-                    self.vidwriter = cv.VideoWriter(self.video_output, -1, self.video_output_fps, self.map_size)
-                    print(f'Video created: {self.video_output} '
-                          f'backend: {self.vidwriter.getBackendName()} '
-                          f'open: {self.vidwriter.isOpened()}')
+                    image_size = np.flip(image.shape[:2])
+                    self.vidwriter = cv.VideoWriter(self.video_output, -1, self.video_output_fps, image_size)
                 self.vidwriter.write(image)
+
+    def draw_paths(self, framei):
+        shape = list(np.flip(self.path_image_size))
+        image = np.zeros(shape, dtype=np.uint8)
+        for link in self.links.values():
+            if link.used:
+                link.draw(image, framei)
+        color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
+        return color_image
+
+    def draw_map(self, framei, power_scale=3, power_offset=-2):
+        image0 = self.map[0:self.map_size[1], 0:self.map_size[0]] / (framei + 1)
+        image = 1 + (np.log10(image0, where=image0 > 0) + power_offset) / power_scale  # log: 1(E0) ... 1E-[power]
+        image[image0 == 0] = 0
+        image = np.round(np.clip(image, 0, 1) * 255).astype(np.uint8)
+        color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
+        return image0, color_image
+
+
+def calc_distance_cdist(target, references):
+    distances = cdist([target], references)
+    index = distances.argmin()
+    distance = distances[0][index]
+    return distance, index
+
+
+def get_log_color_scale(scale, power_scale=3, power_offset=-2):
+    if scale > 0:
+        col_scale = 1 + (math.log10(scale) + power_offset) / power_scale  # log: 1(E0) ... 1E-[power]
+    else:
+        col_scale = 0
+    col_scale = np.clip(col_scale, 0, 1)
+    color_value = [int(np.round(col_scale * 255))]
+    return color_value
