@@ -77,22 +77,41 @@ class Paths:
         out_features = []
         self.datas = datas
         self.features = features
+        base_dir = general_params['base_dir']
         self.image_size = general_params['image_size']
         self.node_distance = params['node_distance']
-        node_distance = self.node_distance
-        base_dir = general_params['base_dir']
-        self.output = os.path.join(base_dir, params['output'])
-        ensure_out_path(self.output)
-        self.image_output = os.path.join(base_dir, params['image_output'])
-        ensure_out_path(self.image_output)
-        self.raw_image_output = os.path.join(base_dir, params['raw_image_output'])
-        ensure_out_path(self.raw_image_output)
-        self.video_output = os.path.join(base_dir, params['video_output'])
-        ensure_out_path(self.video_output)
-        self.video_output_fps = params['video_output_fps']
-        self.frame_interval = params['frame_interval']
+        self.method = params.get('method')
+        self.draw_power_scale = params.get('draw_power_scale', 3)
+        self.draw_power_offset = params.get('draw_power_offset', 0)
 
-        self.map_size = np.divide(self.image_size, node_distance).astype(int)
+        output = params.get('output')
+        if output:
+            output = os.path.join(base_dir, output)
+            ensure_out_path(output)
+        self.output = output
+
+        image_output = params.get('image_output')
+        if image_output:
+            image_output = os.path.join(base_dir, image_output)
+            ensure_out_path(image_output)
+        self.image_output = image_output
+
+        raw_image_output = params.get('raw_image_output')
+        if raw_image_output:
+            raw_image_output = os.path.join(base_dir, raw_image_output)
+            ensure_out_path(raw_image_output)
+        self.raw_image_output = raw_image_output
+
+        video_output = params.get('video_output')
+        if video_output:
+            video_output = os.path.join(base_dir, video_output)
+            ensure_out_path(video_output)
+        self.video_output = video_output
+
+        self.video_output_fps = params.get('video_output_fps')
+        self.frame_interval = params.get('frame_interval', 1)
+
+        self.map_size = np.divide(self.image_size, self.node_distance).astype(int)
         self.path_image_size = self.map_size
         self.map = np.zeros(np.flip(self.map_size + 1), dtype=np.float32)
 
@@ -118,9 +137,13 @@ class Paths:
             for tracki, data in enumerate(datas):
                 if frame in data.frames:
                     position = data.position[frame]
-                    map_position = np.round(np.divide(position, node_distance)).astype(int)
+                    map_position = np.round(np.divide(position, self.node_distance)).astype(int)
                     if tracki in last_track_map_position and not np.all(map_position == last_track_map_position[tracki]):
-                        self.map[map_position[1], map_position[0]] += framei
+                        if 'time' in self.method:
+                            i = framei
+                        else:
+                            i = 1
+                        self.map[map_position[1], map_position[0]] += i
                         last_position = last_track_map_position[tracki]
                         self.update_link(last_position, map_position, framei)
                     last_track_map_position[tracki] = map_position
@@ -138,6 +161,7 @@ class Paths:
                 n += 1
         print(f'Final path links (used/total): {n}/{len(self.links)}')
 
+        # TODO: set output features
         return out_features
 
     def update_link(self, last_position, position, time):
@@ -153,25 +177,30 @@ class Paths:
             link.update_use(time)
 
     def save(self, framei):
-        filename = self.output.format(frame=framei)
-        output_data = {}
-        for link in self.links.values():
-            if link.used:
-                for key, value in link.to_dict().items():
-                    if key not in output_data:
-                        output_data[key] = []
-                    output_data[key].append(value)
-        export_csv_simple(filename, output_data)
+        if self.output:
+            filename = self.output.format(frame=framei)
+            output_data = {}
+            for link in self.links.values():
+                if link.used:
+                    for key, value in link.to_dict().items():
+                        if key not in output_data:
+                            output_data[key] = []
+                        output_data[key].append(value)
+            export_csv_simple(filename, output_data)
 
     def draw(self, framei):
         if self.image_output is not None or self.video_output is not None:
-            #image = self.draw_paths(framei)
-            raw_image, image = self.draw_map(framei)
+            if 'path' in self.method:
+                image = self.draw_paths(framei)
+                raw_image = None
+            else:
+                raw_image, image = self.draw_map(framei)
+
             if self.image_output is not None:
                 image_filename = self.image_output.format(frame=framei)
                 rgb_image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
                 imwrite(image_filename, rgb_image)
-            if self.raw_image_output is not None:
+            if self.raw_image_output is not None and raw_image is not None:
                 image_filename = self.raw_image_output.format(frame=framei)
                 imwrite(image_filename, raw_image)
             if self.video_output is not None:
@@ -189,9 +218,9 @@ class Paths:
         color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
         return color_image
 
-    def draw_map(self, framei, power_scale=3, power_offset=-2):
+    def draw_map(self, framei):
         image0 = self.map[0:self.map_size[1], 0:self.map_size[0]] / (framei + 1)
-        image = 1 + (np.log10(image0, where=image0 > 0) + power_offset) / power_scale  # log: 1(E0) ... 1E-[power]
+        image = 1 + (np.log10(image0, where=image0 > 0) + self.draw_power_offset) / self.draw_power_scale  # log: 1(E0) ... 1E-[power]
         image[image0 == 0] = 0
         image = np.round(np.clip(image, 0, 1) * 255).astype(np.uint8)
         color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
