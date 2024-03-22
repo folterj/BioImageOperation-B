@@ -14,13 +14,16 @@ operations:
           node_distance: 2
           distance: 100
           frame_range: 7
-          method: count # count, time, paths
+          # method: map|paths count|time|direction
+          # recommended: [method, scale, offset]:
+          # map count, 3, 2
+          # map time, 3, -2
+          method: paths direction
           draw_power_scale: 3
           draw_power_offset: 2
-          #draw_power_offset: -2
           #output: paths/paths_{frame:06}.csv
           #raw_image_output: paths/image_raw_{frame:06}.tiff
-          #image_output: paths/image_{frame:06}.tiff
+          image_output: paths/image_{frame:06}.tiff
           video_output: paths.mp4
           video_output_fps: 50
           frame_interval: 100

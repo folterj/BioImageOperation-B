@@ -4,7 +4,7 @@ import cv2 as cv
 
 from src.AnnotationView import AnnotationView
 from src.pipeline.Relabeller import Relabeller
-from src.util import get_input_files, filter_output_files
+from src.util import *
 
 
 def run(all_params, params):
@@ -37,7 +37,7 @@ def run(all_params, params):
 
 
 def annotate(annotation_image_filename, annotation_filename, annotation_margin):
-    image = cv.imread(annotation_image_filename)
+    image = imread(annotation_image_filename)
     if image is None:
         raise OSError(f'File not found: {annotation_image_filename}')
     print('User action: Review annotations (press ESC when finished)')

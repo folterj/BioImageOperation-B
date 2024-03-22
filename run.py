@@ -16,7 +16,10 @@ if __name__ == '__main__':
 
     for operation0 in params['operations']:
         operation = next(iter(operation0))
-        module = import_module(f'src.pipeline.{operation}')
+        try:
+            module = import_module(f'src.pipeline.{operation}')
+        except Exception as e:
+            raise FileNotFoundError(f'Unknown operation: {operation}\n{e}')
         print(f'[Operation: {operation}]')
         module.run(params, operation0[operation])
     print('All operations completed')

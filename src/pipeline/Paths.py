@@ -4,11 +4,10 @@ import math
 import numpy as np
 import os
 from scipy.spatial.distance import cdist
-from sklearn.neighbors import KDTree
 from tqdm import tqdm
 
 from src.file.plain_csv import export_csv_simple
-from src.util import ensure_out_path
+from src.util import ensure_out_path, create_colormap
 
 
 class PathNode:
@@ -16,16 +15,18 @@ class PathNode:
         self.label = label
         self.position = position
         self.created = created
+        self.count = 0
         self.total_use = 0
         self.used = False
 
     def update_use(self, time):
+        self.count += 1
         self.total_use += time
         if not self.used:
             self.used = True
 
-    def draw(self, image, time):
-        color_value = get_log_color_scale(self.total_use / (time + 1), 3, 0)
+    def draw(self, image, time, power_scale, power_offset):
+        color_value = get_log_color_scale(self.total_use / (time + 1), power_scale, power_offset)
         position = np.round(self.position).astype(int)
         cv.drawMarker(image, position, color_value, cv.MARKER_CROSS, 2, 1)
 
@@ -43,16 +44,34 @@ class PathLink:
         self.position1 = position1
         self.position2 = position2
         self.created = created
+        self.count = 0
         self.total_use = 0
+        self.normal = 0
+        self.reverse = 0
         self.used = False
 
-    def update_use(self, time):
+    def update_use(self, time, reversed=False):
+        self.count += 1
         self.total_use += time
         if not self.used:
             self.used = True
+        if reversed:
+            self.reverse += 1
+        else:
+            self.normal += 1
 
-    def draw(self, image, time):
-        color_value = get_log_color_scale(self.total_use / (time + 1), 3)
+    def draw(self, image, time, method, power_scale, power_offset):
+        if 'direction' in method:
+            max_value = max(self.normal, self.reverse)
+            color_channel = np.clip((self.normal - self.reverse) / max_value, 0, 1)
+            magnitude_channel = np.clip(max_value / (time + 1) * 10 ** power_scale, 0, 1)
+            color_value = (color_channel, magnitude_channel)
+        else:
+            if 'time' in method:
+                value = self.total_use
+            else:
+                value = self.count
+            color_value = get_log_color_scale(value / (time + 1), power_scale, power_offset)
         position1 = np.round(self.position1).astype(int)
         position2 = np.round(self.position2).astype(int)
         cv.line(image, position1, position2, color_value, 1, cv.LINE_AA)
@@ -72,6 +91,7 @@ class Paths:
         self.next_label = 0
         self.map = np.zeros((0, 0), dtype=np.float32)
         self.vidwriter = None
+        self.colormap_blue_white_red = create_colormap([(0, 0, 1), (1, 1, 1), (1, 0, 0)])
 
     def run(self, datas, features, params, general_params):
         out_features = []
@@ -165,16 +185,19 @@ class Paths:
         return out_features
 
     def update_link(self, last_position, position, time):
-        key = str(last_position[0]) + ',' + str(last_position[1]) + '-' + str(position[0]) + ',' + str(position[1])
+        key = f'{last_position}-{position}'
         link = self.links.get(key)
+        reversed = False
         if link is None:
-            key_reverse = str(position[0]) + ',' + str(position[1]) + '-' + str(last_position[0]) + ',' + str(last_position[1])
+            key_reverse = f'{position}-{last_position}'
             link = self.links.get(key_reverse)
+            if link is not None:
+                reversed = True
         if link is None:
             self.links[key] = PathLink(self.next_label, last_position, position, time)
             self.next_label += 1
         else:
-            link.update_use(time)
+            link.update_use(time, reversed=reversed)
 
     def save(self, framei):
         if self.output:
@@ -211,11 +234,21 @@ class Paths:
 
     def draw_paths(self, framei):
         shape = list(np.flip(self.path_image_size))
-        image = np.zeros(shape, dtype=np.uint8)
+        dtype = np.uint8
+        if 'direction' in self.method:
+            shape += [2]
+            dtype = np.float32
+        image = np.zeros(shape, dtype=dtype)
         for link in self.links.values():
             if link.used:
-                link.draw(image, framei)
-        color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
+                link.draw(image, framei, self.method, self.draw_power_scale, self.draw_power_offset)
+        if 'direction' in self.method:
+            color_channel = (image[..., 0] * 255).astype(np.uint8)
+            magnitude_channel = image[..., -1]
+            color_image = cv.LUT(cv.cvtColor(color_channel, cv.COLOR_GRAY2BGR), self.colormap_blue_white_red)
+            color_image = (color_image * np.atleast_3d(magnitude_channel)).astype(np.uint8)
+        else:
+            color_image = cv.applyColorMap(image, cv.COLORMAP_HOT)
         return color_image
 
     def draw_map(self, framei):
@@ -234,7 +267,7 @@ def calc_distance_cdist(target, references):
     return distance, index
 
 
-def get_log_color_scale(scale, power_scale=3, power_offset=-2):
+def get_log_color_scale(scale, power_scale=3, power_offset=0):
     if scale > 0:
         col_scale = 1 + (math.log10(scale) + power_offset) / power_scale  # log: 1(E0) ... 1E-[power]
     else:

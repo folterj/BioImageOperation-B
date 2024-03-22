@@ -1,0 +1,22 @@
+general:
+  base_dir: D:/Video/Cooperative_digging
+  fps: 1
+  pixel_size: 1
+  window_size: 1s
+
+operations:
+  - tracking:
+      input: CollabDigging_finalSetup.mp4
+      operations:
+        - grayscale_image
+        - subtract_background
+        - apply_mask
+        - threshold(0.05)
+        - erode(2)
+        - dilate(2)
+        - segment
+      background: CollabDigging_finalSetup back.png
+      mask: CollabDigging_finalSetup mask.png
+      output: tracks
+      video_output: tracked.mp4
+      frame_interval: 1
