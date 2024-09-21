@@ -18,14 +18,18 @@ operations:
           # recommended: [method, scale, offset]:
           # map count, 3, 2
           # map time, 3, -2
+
           #method: map time
+          #draw_power_scale: 6
+          #draw_power_offset: -4
+
           method: paths direction
           draw_power_scale: 3
-          draw_power_offset: 2
+
           #output: paths/paths_{frame:06}.csv
           #raw_image_output: paths/image_raw_{frame:06}.tiff
           image_output: paths/image_{frame:06}.tiff
           video_output: paths.mp4
           video_output_fps: 50
-          frame_interval: 100
+          frame_interval: 1000
           output_size: [1920, 1080]
