@@ -10,8 +10,8 @@ def extract_contact_events(datas, features, params):
     activities = {}
     activities0 = {}
 
-    contact_distance = params['distance']
-    frame_range = params['frame_range']
+    contact_distance = params['contact_distance']
+    activity_frame_range = params['activity_frame_range']
 
     data0 = datas[0]
     frames = data0.frames
@@ -32,8 +32,8 @@ def extract_contact_events(datas, features, params):
                     if (not active or merged) and dist < contact_distance:
                         log_frames[datai] = frame1
                         log_times[datai] = frame1 * data.dtime
-                        activities[datai] = get_typical_activity(data.activity, frame1, frame_range)
-                        activities0[datai] = get_typical_activity(data0.activity, frame1, frame_range)
+                        activities[datai] = get_typical_activity(data.activity, frame1, activity_frame_range)
+                        activities0[datai] = get_typical_activity(data0.activity, frame1, activity_frame_range)
                         break
                 if active:
                     last_frame = frame

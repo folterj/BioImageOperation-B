@@ -1,7 +1,7 @@
 general:
-  base_dir: D:/Video/Ants/stream
+  base_dir: E:/Video/Ants/4_5_dec_food_source
   input: tracks/*.csv
-  video_input: merged.mp4
+  video_input: 00000.MTS
   image_size: [1920, 1080]
   pixel_size: 1
   window_size: 1s
@@ -11,13 +11,14 @@ operations:
       - events:
           type: path_course_change
           features: [distance]
-          node_distance: 2
-          distance: 100
-          frame_range: 7
-          # method: map|paths count|time|direction
+          node_scale: 2
+          contact_distance: 100
+          activity_frame_range: 7
+          # method: map|paths; map: count|time, paths: (direction)
           # recommended: [method, scale, offset]:
           # map count, 3, 2
           # map time, 3, -2
+          #method: map time
           method: paths direction
           draw_power_scale: 3
           draw_power_offset: 2
@@ -27,3 +28,4 @@ operations:
           video_output: paths.mp4
           video_output_fps: 50
           frame_interval: 100
+          output_size: [1920, 1080]

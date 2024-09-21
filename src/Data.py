@@ -66,7 +66,7 @@ class Data:
             self.frames = list(data['frame'].values())
         else:
             self.frames = list(data['x'].keys())
-        self.frames = np.int0(self.frames)
+        self.frames = np.array(self.frames).astype(int)
         self.n = len(self.frames)
 
         if pixel_size is not None and pixel_size != 1:

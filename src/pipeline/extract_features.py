@@ -114,21 +114,22 @@ def run(all_params, params):
 
         elif feature_type == 'events':
             outputs = extract_events(datas, features, feature_set, general_params)
-            output_filename = os.path.join(base_dir, feature_set['output'])
+            if 'output' in feature_set:
+                output_filename = os.path.join(base_dir, feature_set['output'])
 
-            nheaders = max([len(data.info) for data in datas])
-            header = []
-            for i in range(nheaders):
-                header += [f'info{i + 1}']
-            header += list(features)
+                nheaders = max([len(data.info) for data in datas])
+                header = []
+                for i in range(nheaders):
+                    header += [f'info{i + 1}']
+                header += list(features)
 
-            with open(output_filename, 'w', newline='') as csvfile:
-                csvwriter = csv.writer(csvfile)
-                csvwriter.writerow(header)
-                for key in outputs:
-                    info = key.split('_')
-                    row = info + outputs[key]
-                    csvwriter.writerow(row)
+                with open(output_filename, 'w', newline='') as csvfile:
+                    csvwriter = csv.writer(csvfile)
+                    csvwriter.writerow(header)
+                    for key in outputs:
+                        info = key.split('_')
+                        row = info + outputs[key]
+                        csvwriter.writerow(row)
 
         features_done.append(feature_type)
 

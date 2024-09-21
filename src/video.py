@@ -26,7 +26,7 @@ def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_
                             draw_text_abs(video_frame, str(framei), (width // 2, height // 2), scale=2, thickness=2)
                         for label, data in video_datas.items():
                             if framei in data.position:
-                                position = tuple(np.int0(data.position[framei]))
+                                position = tuple(np.array(data.position[framei]).astype(int))
                                 color = color_float_to_cv(colors[int(label) % len(colors)])
                                 draw_annotation(video_frame, label, position, color=color)
                         vidwriter.write(video_frame)

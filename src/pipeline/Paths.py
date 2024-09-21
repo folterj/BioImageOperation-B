@@ -10,40 +10,12 @@ from src.file.plain_csv import export_csv_simple
 from src.util import ensure_out_path, create_colormap
 
 
-class PathNode:
-    def __init__(self, label, position, created):
-        self.label = label
-        self.position = position
-        self.created = created
-        self.count = 0
-        self.total_use = 0
-        self.used = False
-
-    def update_use(self, time):
-        self.count += 1
-        self.total_use += time
-        if not self.used:
-            self.used = True
-
-    def draw(self, image, time, power_scale, power_offset):
-        color_value = get_log_color_scale(self.total_use / (time + 1), power_scale, power_offset)
-        position = np.round(self.position).astype(int)
-        cv.drawMarker(image, position, color_value, cv.MARKER_CROSS, 2, 1)
-
-    def to_dict(self):
-        return {'label': self.label, 'x': self.position[0], 'y': self.position[1],
-                'created': self.created, 'total_use': self.total_use}
-
-    def __str__(self):
-        return str(self.to_dict())
-
-
 class PathLink:
-    def __init__(self, label, position1, position2, created):
+    def __init__(self, label, position1, position2, time):
         self.label = label
         self.position1 = position1
         self.position2 = position2
-        self.created = created
+        self.created = time
         self.count = 0
         self.total_use = 0
         self.normal = 0
@@ -60,7 +32,7 @@ class PathLink:
         else:
             self.normal += 1
 
-    def draw(self, image, time, method, power_scale, power_offset):
+    def draw(self, image, time, method, power_scale, power_offset, scale=1):
         if 'direction' in method:
             max_value = max(self.normal, self.reverse)
             color_channel = np.clip((self.normal - self.reverse) / max_value, 0, 1)
@@ -72,8 +44,8 @@ class PathLink:
             else:
                 value = self.count
             color_value = get_log_color_scale(value / (time + 1), power_scale, power_offset)
-        position1 = np.round(self.position1).astype(int)
-        position2 = np.round(self.position2).astype(int)
+        position1 = np.round(self.position1 * scale).astype(int)
+        position2 = np.round(self.position2 * scale).astype(int)
         cv.line(image, position1, position2, color_value, 1, cv.LINE_AA)
 
     def to_dict(self):
@@ -99,10 +71,11 @@ class Paths:
         self.features = features
         base_dir = general_params['base_dir']
         self.image_size = general_params['image_size']
-        self.node_distance = params['node_distance']
+        self.node_scale = params['node_scale']
         self.method = params.get('method')
         self.draw_power_scale = params.get('draw_power_scale', 3)
         self.draw_power_offset = params.get('draw_power_offset', 0)
+        self.output_size = params.get('output_size')
 
         output = params.get('output')
         if output:
@@ -131,7 +104,7 @@ class Paths:
         self.video_output_fps = params.get('video_output_fps')
         self.frame_interval = params.get('frame_interval', 1)
 
-        self.map_size = np.divide(self.image_size, self.node_distance).astype(int)
+        self.map_size = np.divide(self.image_size, self.node_scale).astype(int)
         self.path_image_size = self.map_size
         self.map = np.zeros(np.flip(self.map_size + 1), dtype=np.float32)
 
@@ -155,9 +128,9 @@ class Paths:
         last_track_map_position = {}
         for framei, frame in enumerate(tqdm(all_frames0)):
             for tracki, data in enumerate(datas):
-                if frame in data.frames:
+                if frame in data.frames and frame in data.position:
                     position = data.position[frame]
-                    map_position = np.round(np.divide(position, self.node_distance)).astype(int)
+                    map_position = np.round(np.divide(position, self.node_scale)).astype(int)
                     if tracki in last_track_map_position and not np.all(map_position == last_track_map_position[tracki]):
                         if 'time' in self.method:
                             i = framei
@@ -233,7 +206,13 @@ class Paths:
                 self.vidwriter.write(image)
 
     def draw_paths(self, framei):
-        shape = list(np.flip(self.path_image_size))
+        if self.output_size is not None:
+            size = self.output_size
+            scale = np.divide(size, self.path_image_size)
+        else:
+            size = self.path_image_size
+            scale = 1
+        shape = list(reversed(size))
         dtype = np.uint8
         if 'direction' in self.method:
             shape += [2]
@@ -241,7 +220,7 @@ class Paths:
         image = np.zeros(shape, dtype=dtype)
         for link in self.links.values():
             if link.used:
-                link.draw(image, framei, self.method, self.draw_power_scale, self.draw_power_offset)
+                link.draw(image, framei, self.method, self.draw_power_scale, self.draw_power_offset, scale=scale)
         if 'direction' in self.method:
             color_channel = (image[..., 0] * 255).astype(np.uint8)
             magnitude_channel = image[..., -1]
