@@ -5,6 +5,24 @@ from tqdm import tqdm
 from src.util import get_filetitle_replace, create_color_table, color_float_to_cv
 
 
+def video_iterator(video_infiles, frame_interval=1):
+    for video_infile in tqdm(video_infiles):
+        vidcap = cv.VideoCapture(video_infile)
+        framei = 0
+        ok = vidcap.isOpened()
+        while ok:
+            ok = vidcap.isOpened()
+            if ok:
+                ok, video_frame = vidcap.read()
+                if framei % frame_interval == 0:
+                    if ok:
+                        yield video_frame
+                    else:
+                        yield None
+            framei += 1
+        vidcap.release()
+
+
 def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_labels=[]):
     width, height, nframes, fps = video_info(video_infiles[0])
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
