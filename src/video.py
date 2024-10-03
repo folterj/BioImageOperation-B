@@ -5,25 +5,35 @@ from tqdm import tqdm
 from src.util import get_filetitle_replace, create_color_table, color_float_to_cv
 
 
-def video_iterator(video_infiles, frame_interval=1):
+def video_iterator(video_infiles, start=0, end=None, interval=1):
     for video_infile in tqdm(video_infiles):
         vidcap = cv.VideoCapture(video_infile)
-        framei = 0
+        if start > 0:
+            vidcap.set(cv.CAP_PROP_POS_FRAMES, start)
+            framei = start
+        else:
+            framei = 0
         ok = vidcap.isOpened()
         while ok:
             ok = vidcap.isOpened()
             if ok:
                 ok, video_frame = vidcap.read()
-                if framei % frame_interval == 0:
+                if framei % interval == 0:
                     if ok:
                         yield video_frame
                     else:
                         yield None
             framei += 1
+            if framei >= end:
+                ok = False
         vidcap.release()
 
 
-def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_labels=[]):
+def annotate_videos(video_infiles, video_outfile, datas, params):
+    interval = params.get('frame_interval', 1)
+    start = params.get('frame_start', 0)
+    end = params.get('frame_end', -1)
+    show_labels = params.get('show_labels', [])
     width, height, nframes, fps = video_info(video_infiles[0])
     vidwriter = cv.VideoWriter(video_outfile, -1, fps, (width, height))
     colors = create_color_table(1000)
@@ -32,14 +42,18 @@ def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_
         title = get_filetitle_replace(video_infile)
         video_datas = datas[title]
         vidcap = cv.VideoCapture(video_infile)
-        framei = 0
+        if start > 0:
+            vidcap.set(cv.CAP_PROP_POS_FRAMES, start)
+            framei = start
+        else:
+            framei = 0
         ok = vidcap.isOpened()
         while ok:
             ok = vidcap.isOpened()
             if ok:
                 ok, video_frame = vidcap.read()
                 if ok:
-                    if framei % frame_interval == 0:
+                    if framei % interval == 0:
                         if 'frame' in show_labels:
                             draw_text_abs(video_frame, str(framei), (width // 2, height // 2), scale=2, thickness=2)
                         for label, data in video_datas.items():
@@ -49,6 +63,8 @@ def annotate_videos(video_infiles, video_outfile, datas, frame_interval=1, show_
                                 draw_annotation(video_frame, label, position, color=color)
                         vidwriter.write(video_frame)
             framei += 1
+            if framei >= end:
+                ok = False
         vidcap.release()
     vidwriter.release()
 

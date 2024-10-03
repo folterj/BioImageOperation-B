@@ -5,6 +5,7 @@ import numpy as np
 
 from src.segmentation import *
 from src.util import *
+from src.video import video_iterator, video_info
 
 
 class ImageProcessing:
@@ -12,7 +13,10 @@ class ImageProcessing:
         self.input_files = input_files
         self.output = output
         self.video_output = video_output
-        self.frame_interval = params.get('frame_interval', 1)
+        _, _, _, fps = video_info(self.input_files[0])
+        self.frame_start = get_frames_number(params.get('frame_start', 0), fps)
+        self.frame_end = get_frames_number(params.get('frame_end'), fps)
+        self.frame_interval = get_frames_number(params.get('frame_interval', 1), fps)
         self.operations = params.get('operations')
 
         if 'background' in params:
@@ -28,23 +32,12 @@ class ImageProcessing:
         self.texture_filters = []
 
     def process_images(self, input_files=None):
-        # TODO: support multiple (sequential) videos files
         # TODO: support image sequence
         if input_files is None:
             input_files = self.input_files
-
-        for input_file in input_files:
-            vidcap = cv.VideoCapture(input_file)
-            framei = 0
-            ok = vidcap.isOpened()
-            while ok:
-                ok, image = vidcap.read()
-                if ok:
-                    if framei % self.frame_interval == 0:
-                        self.process_image(image)
-                ok = vidcap.isOpened()
-                framei += 1
-            vidcap.release()
+        for image in video_iterator(input_files,
+                                    start=self.frame_start, end=self.frame_end, interval=self.frame_interval):
+            self.process_image(image)
 
     def process_image(self, image):
         image = float_image(image)

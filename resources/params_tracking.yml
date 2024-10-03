@@ -1,15 +1,27 @@
 general:
   base_dir: D:/Video/Cooperative_digging
-  video_input: 2024-01-16_18-24-26_SV1.mp4
+  video_input: 2024-08-29_16-11-00_SV11.mp4
   fps: 1
   pixel_size: 1
   window_size: 1s
 
 operations:
+  - relabel_video:
+      input: segmentation/2024-08-29_16-11-00_SV11.predictions.feather
+      stream: True
+      frame_start: "0:10"
+      frame_end: "1:00"
+      frame_interval: 1
+      video_output: control.mp4
+
   - tracking:
-      input: segmentation/sideview-2024-01-24_02-02-17_SV11.predictions.feather
+      input: segmentation/2024-08-29_16-11-00_SV11.predictions.feather
+      stream: True
       output: tracks
       video_output: tracked.mp4
+      frame_start: "0:10"
+      frame_end: "1:00"
       frame_interval: 1
-      max_move_distance: 10
-      max_inactive: 3
+      max_move_distance: 100
+      min_active: 10
+      max_inactive: 10

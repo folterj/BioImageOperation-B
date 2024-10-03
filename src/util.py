@@ -358,6 +358,22 @@ def numeric_string_sort(items):
     return sorted(items, key=lambda item: list(map(int, re.findall(r'\d+', item))))
 
 
+def get_frames_number(value, fps):
+    multipliers = [1, 60, 60, 24]
+    nframes = value
+    if isinstance(value, str):
+        if ':' in value:
+            nseconds = 0
+            cummultiplier = 1
+            for part, multiplier in zip(reversed(value.split(':')), multipliers):
+                cummultiplier *= multiplier
+                nseconds += int(part) * cummultiplier
+            nframes = int(nseconds * fps)
+        else:
+            nframes = int(value)
+    return nframes
+
+
 def create_colormap(colors, length=256, dtype=np.uint8):
     colormap = np.zeros((length, 1, 3), dtype)     # opencv compatible colormap
     ncolors = len(colors) - 1
