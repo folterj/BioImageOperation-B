@@ -13,9 +13,14 @@ operations:
       frame_end: "1:00"
       frame_interval: 1
       video_output: control.mp4
+      id_label: track_id
+      position: [x_body, y_body]
+      label: id
 
   - tracking:
       input: segmentation/2024-08-29_16-11-00_SV11.predictions.feather
+      id_label: track_id
+      position: [x_body, y_body]
       stream: True
       output: tracks
       video_output: tracked.mp4

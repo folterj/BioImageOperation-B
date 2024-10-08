@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.metrics import euclidean_distances
 from tqdm import tqdm
 
-from src.file.streaming import get_stream_total, get_stream_iterator
+from src.file.streaming import get_stream_iterator
 from src.util import *
 from src.video import video_iterator, draw_annotation, video_info
 
@@ -20,6 +20,7 @@ class Tracker:
         self.frame_end = get_frames_number(params.get('frame_end'), fps)
         self.operations = params.get('operations')
 
+        self.id_label = params.get('id_label', 'id')
         self.max_move_distance = params.get('max_move_distance', 1)
         self.min_active = params.get('min_active', 3)
         self.max_inactive = params.get('max_inactive', 3)
@@ -31,7 +32,7 @@ class Tracker:
         # assume that order of the data is: frames, ids
         if input_files is None:
             input_files = self.input_files
-        data_iterator = get_stream_iterator(input_files, self.calc_features)
+        data_iterator = get_stream_iterator(input_files, id_label=self.id_label, calc_features_function=self.calc_features)
         if self.video_input:
             frame_iterator = video_iterator(self.video_input,
                                             start=self.frame_start, end=self.frame_end, interval=self.frame_interval)

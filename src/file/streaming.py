@@ -6,7 +6,7 @@ def calc_features_function_dummy(data):
     return data
 
 
-def get_stream_iterator(input_files, calc_features_function=None):
+def get_stream_iterator(input_files, id_label='id', calc_features_function=None):
     if calc_features_function is None:
         calc_features_function = calc_features_function_dummy
     for input_file in input_files:
@@ -16,7 +16,7 @@ def get_stream_iterator(input_files, calc_features_function=None):
                 for i in range(batch.num_rows):
                     row = {column_name: batch[column_name][i].as_py() for column_name in batch.column_names}
                     yield {'frame': int(row['frame']),
-                           'id': int(row['track_id']),
+                           'id': int(row[id_label]),
                            'values': calc_features_function(row),
                            'original_values': row}
 
