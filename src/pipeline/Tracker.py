@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.metrics import euclidean_distances
 from tqdm import tqdm
 
-from src.file.streaming import get_stream_iterator
+from src.file.StreamReader import StreamReader
+from src.file.CsvStreamWriter import CsvStreamWriter
 from src.util import *
 from src.video import video_iterator, draw_annotation, video_info
 
@@ -14,10 +15,10 @@ class Tracker:
         self.video_input = video_input
         self.output = output
         self.video_output = video_output
-        _, _, _, fps = video_info(self.video_input[0])
+        _, _, nframes, fps = video_info(self.video_input[0])
         self.frame_interval = get_frames_number(params.get('frame_interval', 1), fps)
         self.frame_start = get_frames_number(params.get('frame_start', 0), fps)
-        self.frame_end = get_frames_number(params.get('frame_end'), fps)
+        self.frame_end = get_frames_number(params.get('frame_end', nframes), fps)
         self.operations = params.get('operations')
 
         self.id_label = params.get('id_label', 'id')
@@ -32,14 +33,21 @@ class Tracker:
         # assume that order of the data is: frames, ids
         if input_files is None:
             input_files = self.input_files
-        data_iterator = get_stream_iterator(input_files, id_label=self.id_label, calc_features_function=self.calc_features)
+        stream_reader = StreamReader(input_files)
+        data_iterator = stream_reader.get_stream_iterator(id_label=self.id_label, calc_features_function=self.calc_features)
         if self.video_input:
             frame_iterator = video_iterator(self.video_input,
                                             start=self.frame_start, end=self.frame_end, interval=self.frame_interval)
         else:
             frame_iterator = iter([])
 
-        if self.video_output is not None:
+        if self.output:
+            stream_writer = CsvStreamWriter(self.output, stream_reader.schema.names, 1000)
+        else:
+            # avoid warnings
+            stream_writer = None
+
+        if self.video_output:
             width, height, nframes, fps = video_info(self.video_input[0])
             vidwriter = cv.VideoWriter(self.video_output, -1, fps, (width, height))
             label_color = color_float_to_cv((0, 0, 1))
@@ -71,12 +79,20 @@ class Tracker:
                     data = next(data_iterator)
 
             self.track_frame(framei, frame_values)
+            if self.output:
+                for track_id, track in self.tracks.items():
+                    values = track['original_values']
+                    values['track_id'] = track_id
+                    stream_writer.write(values)
             if self.video_output:
                 for track_id, track in self.tracks.items():
                     draw_annotation(image, str(track_id), track['position'], color=label_color)
                 vidwriter.write(image)
 
-        if vidwriter is not None:
+        if self.output:
+            stream_writer.close()
+
+        if self.video_output:
             vidwriter.release()
 
     def calc_features(self, values0):
@@ -124,7 +140,7 @@ class Tracker:
                 for match_track_index in all_best_indices[id_index]:
                     track = tracks_list[match_track_index]
                     distance = math.dist(track['position'], position)
-                    if not track['assigned'] and distance < self.max_move_distance:
+                    if not track['assigned'] and self.check_match(track, distance):
                         self.assign_track(track, values, distance, framei)
                         assigned = True
                         break
@@ -136,19 +152,25 @@ class Tracker:
             for values in ids.values():
                 self.add_track(values, framei)
 
+    def check_match(self, track, distance):
+        return distance < self.max_move_distance * (1 + track['inactive_count'])
+
     def add_track(self, values, framei):
         self.tracks[self.next_id] = {'assigned': True,
                                      'active_count': 0, 'inactive_count': 0, 'last_active': framei,
-                                     'mean_length': values['length']}
+                                     'mean_length': values['length'], 'delta': np.zeros(2)}
         track = self.tracks[self.next_id]
         track.update(values)
         self.next_id += 1
 
     def assign_track(self, track, values, distance, framei):
+        add_factor = 0.1
         active_factor = calc_active_factor(track, self.min_active)
         range_factor = calc_range_factor(track, distance, self.max_move_distance)
         length_factor = calc_length_factor(track, abs(track['length'] - values['length']))
         match_factor = range_factor * length_factor * active_factor
+        delta = np.array(values['position']) - track['position']
+        track['delta'] = delta * add_factor + track['delta'] * (1 - add_factor)
         track.update(values)
         track['assigned'] = True
         track['active_count'] += 1
@@ -159,6 +181,8 @@ class Tracker:
     def update_track(self, track, framei):
         if not track['assigned']:
             track['inactive_count'] += 1
+            track['position'] = track['position'] + track['delta']
+            track['delta'] /= 2
         track['assigned'] = False
         return framei - track['last_active'] < self.max_inactive
 

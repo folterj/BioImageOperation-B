@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 
 from src.Data import read_data
-from src.file.streaming import get_stream_iterator, get_stream_total
+from src.file.StreamReader import StreamReader
 from src.util import *
 from src.video import annotate_videos, video_iterator, video_info, draw_annotation
 
@@ -27,7 +27,8 @@ def run(all_params, params):
 
 def annotate_stream_video(input_files, video_files, video_output, params):
     id_label = params.get('id_label', 'id')
-    data_iterator = get_stream_iterator(input_files, id_label=id_label)
+    stream_reader = StreamReader(input_files)
+    data_iterator = stream_reader.get_stream_iterator(id_label=id_label)
     width, height, nframes, fps = video_info(video_files[0])
     frame_start = get_frames_number(params.get('frame_start', 0), fps)
     frame_end = get_frames_number(params.get('frame_end'), fps)
