@@ -1,6 +1,8 @@
 numpy
 pandas
 pyarrow
+scikit-learn
+scikit-image
 opencv-python
 matplotlib
 pyyaml
