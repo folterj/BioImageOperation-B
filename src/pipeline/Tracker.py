@@ -60,7 +60,8 @@ class Tracker:
 
         if self.video_output:
             width, height, nframes, fps = video_info(self.video_input[0])
-            vidwriter = cv.VideoWriter(self.video_output, -1, fps, (width, height))
+            fourcc = cv.VideoWriter.fourcc(*'avc1')
+            vidwriter = cv.VideoWriter(self.video_output, fourcc, fps, (width, height))
             label_color = color_float_to_cv((0, 0, 1))
         else:
             vidwriter = None
