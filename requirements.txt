@@ -1,9 +1,9 @@
 numpy
-pandas
-pyarrow
 scikit-learn
 scikit-image
 opencv-python
 matplotlib
+pandas
+pyarrow
 pyyaml
 tqdm

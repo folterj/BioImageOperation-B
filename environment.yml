@@ -1,0 +1,16 @@
+name: bio-b-env
+channels:
+ - conda-forge
+ - defaults
+dependencies:
+ - python=3.10
+ - numpy
+ - scikit-learn
+ - scikit-image
+ - opencv
+ - ffmpeg
+ - matplotlib
+ - pandas
+ - pyarrow
+ - pyyaml
+ - tqdm
