@@ -11,11 +11,10 @@ operations:
       id_label: track_id
       position: [x_body, y_body]
       stream: True
-      output: tracked.csv
+      output: tracked
       video_output: tracked.mp4
       frame_start: "0:10"
-#      frame_end: "1:00"
       frame_interval: 1
-      max_move_distance: 50
-      min_active: 10
-      max_inactive: 50
+      max_move_distance: 20
+      min_active: 100
+      max_inactive: 100

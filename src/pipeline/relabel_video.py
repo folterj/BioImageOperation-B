@@ -3,7 +3,8 @@ import os
 from tqdm import tqdm
 
 from src.Data import read_data
-from src.file.StreamReader import StreamReader
+from src.file.FeatherFileReader import FeatherFileReader
+from src.file.FeatherStreamReader import FeatherStreamReader
 from src.util import *
 from src.video import annotate_videos, video_iterator, video_info, draw_annotation
 
@@ -26,9 +27,13 @@ def run(all_params, params):
 
 
 def annotate_stream_video(input_files, video_files, video_output, params):
-    id_label = params.get('id_label', 'id')
-    stream_reader = StreamReader(input_files)
-    data_iterator = stream_reader.get_stream_iterator(id_label=id_label)
+    label_keys = params.get('id_label', 'id')
+    try:
+        data_reader = FeatherStreamReader(input_files)
+    except Exception as e:
+        print(f'Warning: unable to open input files as stream ({e})')
+        data_reader = FeatherFileReader(input_files)
+    data_iterator = data_reader.get_stream_iterator()
     width, height, nframes, fps = video_info(video_files[0])
     frame_start = get_frames_number(params.get('frame_start', 0), fps)
     frame_end = get_frames_number(params.get('frame_end'), fps)
@@ -36,7 +41,6 @@ def annotate_stream_video(input_files, video_files, video_output, params):
     frame_iterator = video_iterator(video_files,
                                     start=frame_start, end=frame_end, interval=frame_interval)
     position_keys = params.get('position', 'position')
-    label_keys = params.get('label', 'id')
 
     vidwriter = cv.VideoWriter(video_output, -1, fps, (width, height))
     label_color = color_float_to_cv((1, 0, 0))
@@ -48,11 +52,10 @@ def annotate_stream_video(input_files, video_files, video_output, params):
         while not frame_done:
             data_framei = data['frame']
             if data_framei == framei:
-                values = data['values']
                 if isinstance(position_keys, list):
-                    position = [values[key] for key in position_keys]
+                    position = [data[key] for key in position_keys]
                 else:
-                    position = values[position_keys]
+                    position = data[position_keys]
                 if isinstance(label_keys, list):
                     label = ''.join([str(data[key]) for key in label_keys])
                 else:

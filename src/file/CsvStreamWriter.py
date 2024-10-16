@@ -2,11 +2,10 @@ import csv
 
 
 class CsvStreamWriter:
-    def __init__(self, filename, columns, batch_size):
+    def __init__(self, filename, batch_size=1000):
         self.batch_size = batch_size
         self.file = open(filename, 'w', newline='')
-        self.writer = csv.DictWriter(self.file, fieldnames=columns)
-        self.writer.writeheader()
+        self.writer = None
         self.data = []
 
     def write(self, data):
@@ -16,6 +15,10 @@ class CsvStreamWriter:
             self.data = []
 
     def write_batch(self):
+        if self.writer is None:
+            column_names = list(self.data[0].keys())
+            self.writer = csv.DictWriter(self.file, fieldnames=column_names)
+            self.writer.writeheader()
         self.writer.writerows(self.data)
 
     def close(self):

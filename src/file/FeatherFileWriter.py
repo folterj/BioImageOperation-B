@@ -1,7 +1,7 @@
 import pyarrow
 
 
-class FeatherStreamWriter:
+class FeatherFileWriter:
     def __init__(self, filename, batch_size=1000):
         self.filename = filename
         self.batch_size = batch_size
@@ -24,7 +24,7 @@ class FeatherStreamWriter:
     def write_batch(self):
         batch = pyarrow.record_batch(self.data)
         if self.writer is None:
-            self.writer = pyarrow.RecordBatchStreamWriter(self.filename, batch.schema)
+            self.writer = pyarrow.RecordBatchFileWriter(self.filename, batch.schema)
         self.writer.write_batch(batch)
         self.create_new_data()
 

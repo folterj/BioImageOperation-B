@@ -15,18 +15,17 @@ operations:
 #      video_output: control.mp4
 #      id_label: track_id
 #      position: [x_body, y_body]
-#      label: id
 
   - tracking:
       input: segmentation/2024-08-29_16-11-00_SV11.predictions.feather
       id_label: track_id
       position: [x_body, y_body]
       stream: True
-      output: tracked.csv
+      output: tracked
       video_output: tracked.mp4
       frame_start: "0:10"
-#      frame_end: "1:00"
+      frame_end: "1:00"
       frame_interval: 1
-      max_move_distance: 50
-      min_active: 10
-      max_inactive: 50
+      max_move_distance: 20
+      min_active: 100
+      max_inactive: 100

@@ -2,8 +2,11 @@ import numpy as np
 from sklearn.metrics import euclidean_distances
 from tqdm import tqdm
 
-from src.file.StreamReader import StreamReader
+from src.file.FeatherFileReader import FeatherFileReader
+from src.file.FeatherFileWriter import FeatherFileWriter
+from src.file.FeatherStreamReader import FeatherStreamReader
 from src.file.CsvStreamWriter import CsvStreamWriter
+from src.file.FeatherStreamWriter import FeatherStreamWriter
 from src.util import *
 from src.video import video_iterator, draw_annotation, video_info
 
@@ -33,8 +36,12 @@ class Tracker:
         # assume that order of the data is: frames, ids
         if input_files is None:
             input_files = self.input_files
-        stream_reader = StreamReader(input_files)
-        data_iterator = stream_reader.get_stream_iterator(id_label=self.id_label, calc_features_function=self.calc_features)
+        try:
+            data_reader = FeatherStreamReader(input_files)
+        except Exception as e:
+            print(f'Warning: unable to open input files as stream ({e})')
+            data_reader = FeatherFileReader(input_files)
+        data_iterator = data_reader.get_stream_iterator()
         if self.video_input:
             frame_iterator = video_iterator(self.video_input,
                                             start=self.frame_start, end=self.frame_end, interval=self.frame_interval)
@@ -42,55 +49,61 @@ class Tracker:
             frame_iterator = iter([])
 
         if self.output:
-            stream_writer = CsvStreamWriter(self.output, stream_reader.schema.names, 1000)
+            batch_size = 1000
+            data_writers = [
+                FeatherStreamWriter(self.output + '_stream.feather', batch_size),
+                FeatherFileWriter(self.output + '.feather', batch_size),
+                CsvStreamWriter(self.output + '.csv', batch_size),
+            ]
         else:
-            # avoid warnings
-            stream_writer = None
+            data_writers = []
 
         if self.video_output:
             width, height, nframes, fps = video_info(self.video_input[0])
             vidwriter = cv.VideoWriter(self.video_output, -1, fps, (width, height))
             label_color = color_float_to_cv((0, 0, 1))
         else:
-            # avoid warnings
             vidwriter = None
             label_color = None
 
         frames = range(self.frame_start, self.frame_end, self.frame_interval)
-        data = {'frame': -1, 'values': {}}
+        data_row = {'frame': -1, 'values': {}}
         for framei in tqdm(frames, total=len(frames)):
             if self.video_output:
                 if self.video_input:
                     image = next(frame_iterator)
                 else:
                     image = np.zeros((height, width, 3), np.uint8)
+            else:
+                image = None
             frame_done = False
             frame_values = {}
             while not frame_done:
-                data_framei = data['frame']
+                data_framei = data_row['frame']
                 if data_framei == framei:
-                    id = data['id']
-                    values = data['values']
-                    frame_values[id] = values
-                    frame_values[id]['original_values'] = data['original_values']
+                    track_id = int(data_row[self.id_label])
+                    frame_values[track_id] = self.calc_features(data_row)
+                    frame_values[track_id]['original_values'] = data_row
                 elif data_framei > framei:
                     frame_done = True
                 if not frame_done:
-                    data = next(data_iterator)
+                    data_row = next(data_iterator)
 
             self.track_frame(framei, frame_values)
             if self.output:
                 for track_id, track in self.tracks.items():
                     values = track['original_values']
                     values['track_id'] = track_id
-                    stream_writer.write(values)
+                    for data_writer in data_writers:
+                        data_writer.write(values)
             if self.video_output:
                 for track_id, track in self.tracks.items():
                     draw_annotation(image, str(track_id), track['position'], color=label_color)
                 vidwriter.write(image)
 
         if self.output:
-            stream_writer.close()
+            for data_writer in data_writers:
+                data_writer.close()
 
         if self.video_output:
             vidwriter.release()
@@ -153,7 +166,7 @@ class Tracker:
                 self.add_track(values, framei)
 
     def check_match(self, track, distance):
-        return distance < self.max_move_distance * (1 + track['inactive_count'])
+        return distance < self.max_move_distance * (1 + track['inactive_count'] // 2)
 
     def add_track(self, values, framei):
         self.tracks[self.next_id] = {'assigned': True,
@@ -167,7 +180,8 @@ class Tracker:
         add_factor = 0.1
         active_factor = calc_active_factor(track, self.min_active)
         range_factor = calc_range_factor(track, distance, self.max_move_distance)
-        length_factor = calc_length_factor(track, abs(track['length'] - values['length']))
+        length = track['length'] if track['length'] is not None else track['mean_length']
+        length_factor = calc_length_factor(track, abs(length - values['length']))
         match_factor = range_factor * length_factor * active_factor
         delta = np.array(values['position']) - track['position']
         track['delta'] = delta * add_factor + track['delta'] * (1 - add_factor)
@@ -176,7 +190,7 @@ class Tracker:
         track['active_count'] += 1
         track['inactive_count'] = 0
         track['last_active'] = framei
-        track['mean_length'] = track['mean_length'] * (1 - match_factor) + track['length'] * match_factor
+        track['mean_length'] = track['mean_length'] * (1 - match_factor) + length * match_factor
 
     def update_track(self, track, framei):
         if not track['assigned']:
@@ -206,7 +220,7 @@ def calc_range_factor(track, distance, max_move_distance):
 def calc_length_factor(track, length_dif):
     length_factor = 1
     l = track['mean_length']
-    if l == 0:
+    if l == 0 and track['length'] is not None:
         l = track['length']
     if l != 0:
         length_factor = max(1 - length_dif / l, 0)
