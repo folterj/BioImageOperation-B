@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics import euclidean_distances, pairwise_distances
 from tqdm import tqdm
 
 from src.file.FeatherFileReader import FeatherFileReader
@@ -68,7 +68,7 @@ class Tracker:
             label_color = None
 
         frames = range(self.frame_start, self.frame_end, self.frame_interval)
-        data_row = {'frame': -1, 'values': {}}
+        data = {'frame': -1, 'values': {}}
         for framei in tqdm(frames, total=len(frames)):
             if self.video_output:
                 if self.video_input:
@@ -80,26 +80,28 @@ class Tracker:
             frame_done = False
             frame_values = {}
             while not frame_done:
-                data_framei = data_row['frame']
+                data_framei = int(data['frame'])
                 if data_framei == framei:
-                    track_id = int(data_row[self.id_label])
-                    frame_values[track_id] = self.calc_features(data_row)
-                    frame_values[track_id]['original_values'] = data_row
+                    track_id = int(data[self.id_label])
+                    frame_values[track_id] = self.calc_features(data)
+                    frame_values[track_id]['original_values'] = data
                 elif data_framei > framei:
                     frame_done = True
                 if not frame_done:
-                    data_row = next(data_iterator)
+                    data = next(data_iterator)
 
             self.track_frame(framei, frame_values)
             if self.output:
                 for track_id, track in self.tracks.items():
-                    values = track['original_values']
-                    values['track_id'] = track_id
-                    for data_writer in data_writers:
-                        data_writer.write(values)
+                    if track['assigned']:
+                        values = track['original_values']
+                        values['track_id'] = track_id
+                        for data_writer in data_writers:
+                            data_writer.write(values)
             if self.video_output:
                 for track_id, track in self.tracks.items():
-                    draw_annotation(image, str(track_id), track['position'], color=label_color)
+                    if track['assigned']:
+                        draw_annotation(image, str(track_id), track['position'], color=label_color)
                 vidwriter.write(image)
 
         if self.output:
@@ -115,7 +117,7 @@ class Tracker:
         positions.append((values0['x_body'], values0['y_body']))
         positions.append((values0['x_tail'], values0['y_tail']))
         values = {'positions': positions}
-        posi = int((len(positions) - 1) / 2)
+        posi = int((len(positions) - 1) / 2)    # find the middle position
         values['position'] = positions[posi]
         last_position = None
         dists = []
@@ -139,6 +141,8 @@ class Tracker:
         track_positions = [track['position'] for track in tracks_list]
         if len(id_positions) > 0 and len(track_positions) > 0:
             distance_matrix = euclidean_distances(id_positions, track_positions)
+            #distance_matrix2 = pairwise_distances(np.array([id['length'] for id in ids.values()]).reshape(-1,1), np.array([track['mean_length'] for track in tracks_list]).reshape(-1,1))
+            #distance_matrix = 1 / ((1 / (distance_matrix1 + 1e-6)) * (1 / (distance_matrix2 + 1e-6)))
             all_best_indices = []
             best_dists = []
             for id_index in range(len(ids)):
@@ -223,6 +227,6 @@ def calc_length_factor(track, length_dif):
     l = track['mean_length']
     if l == 0 and track['length'] is not None:
         l = track['length']
-    if l != 0:
+    if not np.isclose(l, 0):
         length_factor = max(1 - length_dif / l, 0)
     return length_factor

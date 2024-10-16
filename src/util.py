@@ -284,6 +284,10 @@ def get_input_files(general_params, params, input_name):
         input_path = os.path.join(input_path, '*')
     return numeric_string_sort(glob.glob(input_path))
 
+def try_path_join(base_dir, path):
+    if base_dir and path:
+        path = os.path.join(base_dir, path)
+    return path
 
 def filter_output_files(filenames, all_params):
     base_dir = all_params['general']['base_dir']

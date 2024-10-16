@@ -50,7 +50,7 @@ def annotate_stream_video(input_files, video_files, video_output, params):
     for framei, image in tqdm(zip(frames, frame_iterator), total=len(frames)):
         frame_done = False
         while not frame_done:
-            data_framei = data['frame']
+            data_framei = int(data['frame'])
             if data_framei == framei:
                 if isinstance(position_keys, list):
                     position = [data[key] for key in position_keys]
