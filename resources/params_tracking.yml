@@ -21,13 +21,14 @@ operations:
       id_label: track_id
       position: [x_body, y_body]
       stream: True
-      output: tracked
-      video_output: tracked.mp4
+      output: tracked_test
+      video_output: tracked_test.mp4
       frame_start: "0:10"
-      frame_end: "1:00"
+      frame_end: "10:00"
       frame_interval: 1
+      max_individuals: 60
       move_distance: 4
       max_move_distance: 30
       min_active: 100
-      max_inactive: 1000
+      max_inactive: 0
       debug_mode: True

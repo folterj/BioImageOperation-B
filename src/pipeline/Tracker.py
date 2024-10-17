@@ -26,10 +26,11 @@ class Tracker:
         self.operations = params.get('operations')
 
         self.id_label = params.get('id_label', 'id')
+        self.max_individuals = params.get('max_individuals')
         self.move_distance = params.get('move_distance', 1)
         self.max_move_distance = params.get('max_move_distance', 1)
-        self.min_active = params.get('min_active', 3)
-        self.max_inactive = params.get('max_inactive', 3)
+        self.min_active = params.get('min_active', 0)
+        self.max_inactive = params.get('max_inactive', 0)
         self.tracks = {}
         self.next_id = 0
 
@@ -196,12 +197,13 @@ class Tracker:
         return distance < self.max_move_distance + track['inactive_count'] * self.move_distance
 
     def add_track(self, values, framei):
-        self.tracks[self.next_id] = {'assigned': True,
-                                     'active_count': 0, 'inactive_count': 0, 'last_active': framei,
-                                     'mean_length': values['length'], 'delta': np.zeros(2)}
-        track = self.tracks[self.next_id]
-        track.update(values)
-        self.next_id += 1
+        if self.max_individuals is not None and self.next_id < self.max_individuals:
+            self.tracks[self.next_id] = {'assigned': True,
+                                         'active_count': 0, 'inactive_count': 0, 'last_active': framei,
+                                         'mean_length': values['length'], 'delta': np.zeros(2)}
+            track = self.tracks[self.next_id]
+            track.update(values)
+            self.next_id += 1
 
     def assign_track(self, track, values, distance, framei):
         add_factor = 0.1
@@ -231,7 +233,8 @@ class Tracker:
             track['position'] = track['position'] + delta
             track['delta'] = delta
         track['assigned'] = False
-        return framei - track['last_active'] < self.max_inactive
+        active = framei - track['last_active'] < self.max_inactive if self.max_inactive else True
+        return active
 
 
 def calc_active_factor(track, min_active):
