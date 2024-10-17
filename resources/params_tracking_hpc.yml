@@ -15,6 +15,7 @@ operations:
       video_output: tracked.mp4
       frame_start: "0:10"
       frame_interval: 1
-      max_move_distance: 20
-      min_active: 100
+      move_distance: 4
+      max_move_distance: 30
+      min_active: 1000
       max_inactive: 100

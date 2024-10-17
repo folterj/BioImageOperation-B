@@ -26,6 +26,8 @@ operations:
       frame_start: "0:10"
       frame_end: "1:00"
       frame_interval: 1
-      max_move_distance: 20
+      move_distance: 4
+      max_move_distance: 30
       min_active: 100
-      max_inactive: 100
+      max_inactive: 1000
+      debug_mode: True

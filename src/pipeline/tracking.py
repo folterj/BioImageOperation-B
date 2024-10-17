@@ -9,8 +9,9 @@ def run(all_params, params):
     video_input = get_input_files(general_params, params, 'video_input')
     output = try_path_join(base_dir, params.get('output'))
     video_output = try_path_join(base_dir, params.get('video_output'))
+    debug_mode = params.get('debug_mode')
     if len(input_files) == 0:
         raise ValueError('Missing input files')
 
-    tracker = Tracker(params, base_dir, input_files, video_input, output, video_output)
+    tracker = Tracker(params, base_dir, input_files, video_input, output, video_output, debug_mode=debug_mode)
     tracker.track()

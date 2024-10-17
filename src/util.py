@@ -1,3 +1,4 @@
+import cmath
 from collections import deque
 import colorsys
 import cv2 as cv
@@ -14,6 +15,16 @@ from skimage.segmentation import watershed
 
 
 mpl.rcParams['figure.dpi'] = 600
+
+
+def vector_to_polar(vector):
+    return np.linalg.norm(vector), np.angle(complex(*vector))
+
+
+def polar_to_vector(polar):
+    nprect = np.vectorize(cmath.rect)
+    real_imag = nprect(*polar)
+    return real_imag.real.item(), real_imag.imag.item()
 
 
 def list_to_str(lst):

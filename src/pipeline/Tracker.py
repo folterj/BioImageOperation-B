@@ -12,12 +12,13 @@ from src.video import video_iterator, draw_annotation, video_info
 
 
 class Tracker:
-    def __init__(self, params, base_dir, input_files, video_input, output, video_output):
+    def __init__(self, params, base_dir, input_files, video_input, output, video_output, debug_mode=False):
         self.base_dir = base_dir
         self.input_files = input_files
         self.video_input = video_input
         self.output = output
         self.video_output = video_output
+        self.debug_mode = debug_mode
         _, _, nframes, fps = video_info(self.video_input[0])
         self.frame_interval = get_frames_number(params.get('frame_interval', 1), fps)
         self.frame_start = get_frames_number(params.get('frame_start', 0), fps)
@@ -25,6 +26,7 @@ class Tracker:
         self.operations = params.get('operations')
 
         self.id_label = params.get('id_label', 'id')
+        self.move_distance = params.get('move_distance', 1)
         self.max_move_distance = params.get('max_move_distance', 1)
         self.min_active = params.get('min_active', 3)
         self.max_inactive = params.get('max_inactive', 3)
@@ -58,14 +60,20 @@ class Tracker:
         else:
             data_writers = []
 
+        if self.debug_mode:
+            self.debug_writer = CsvStreamWriter(self.output + '_debug.csv')
+
         if self.video_output:
             width, height, nframes, fps = video_info(self.video_input[0])
             fourcc = cv.VideoWriter.fourcc(*'avc1')
             vidwriter = cv.VideoWriter(self.video_output, fourcc, fps, (width, height))
             label_color = color_float_to_cv((0, 0, 1))
+            inactive_color = color_float_to_cv((0.5, 0.5, 1))
         else:
+            width, height = 0, 0
             vidwriter = None
             label_color = None
+            inactive_color = None
 
         frames = range(self.frame_start, self.frame_end, self.frame_interval)
         data = {'frame': -1, 'values': {}}
@@ -100,13 +108,20 @@ class Tracker:
                             data_writer.write(values)
             if self.video_output:
                 for track_id, track in self.tracks.items():
-                    if track['assigned']:
-                        draw_annotation(image, str(track_id), track['position'], color=label_color)
+                    if track['assigned'] or self.debug_mode:
+                        if track['assigned']:
+                            color = label_color
+                        else:
+                            color = inactive_color
+                        draw_annotation(image, str(track_id), track['position'], color=color)
                 vidwriter.write(image)
 
         if self.output:
             for data_writer in data_writers:
                 data_writer.close()
+
+        if self.debug_mode:
+            self.debug_writer.close()
 
         if self.video_output:
             vidwriter.release()
@@ -130,6 +145,9 @@ class Tracker:
         return values
 
     def track_frame(self, framei, ids):
+        def length_distance(length, mean_length):
+            return abs(length - mean_length)
+
         id_list = list(ids.keys())
         # update tracks
         for id, track in list(self.tracks.items()):
@@ -141,8 +159,10 @@ class Tracker:
         track_positions = [track['position'] for track in tracks_list]
         if len(id_positions) > 0 and len(track_positions) > 0:
             distance_matrix = euclidean_distances(id_positions, track_positions)
-            #distance_matrix2 = pairwise_distances(np.array([id['length'] for id in ids.values()]).reshape(-1,1), np.array([track['mean_length'] for track in tracks_list]).reshape(-1,1))
-            #distance_matrix = 1 / ((1 / (distance_matrix1 + 1e-6)) * (1 / (distance_matrix2 + 1e-6)))
+            #distance_matrix2 = pairwise_distances([id['length'] for id in ids.values()],
+            #                                      [track['mean_length'] for track in tracks_list],
+            #                                      metric=length_distance)
+            #distance_matrix = distance_matrix1 + distance_matrix2
             all_best_indices = []
             best_dists = []
             for id_index in range(len(ids)):
@@ -159,6 +179,8 @@ class Tracker:
                     track = tracks_list[match_track_index]
                     distance = math.dist(track['position'], position)
                     if not track['assigned'] and self.check_match(track, distance):
+                        if self.debug_mode:
+                            self.debug_writer.write({'distance': distance})
                         self.assign_track(track, values, distance, framei)
                         assigned = True
                         break
@@ -171,7 +193,7 @@ class Tracker:
                 self.add_track(values, framei)
 
     def check_match(self, track, distance):
-        return distance < self.max_move_distance * (1 + track['inactive_count'] // 2)
+        return distance < self.max_move_distance + track['inactive_count'] * self.move_distance
 
     def add_track(self, values, framei):
         self.tracks[self.next_id] = {'assigned': True,
@@ -184,7 +206,7 @@ class Tracker:
     def assign_track(self, track, values, distance, framei):
         add_factor = 0.1
         active_factor = calc_active_factor(track, self.min_active)
-        range_factor = calc_range_factor(track, distance, self.max_move_distance)
+        range_factor = calc_range_factor(track, distance, self.move_distance)
         length = track['length'] if track['length'] is not None else track['mean_length']
         length_factor = calc_length_factor(track, abs(length - values['length']))
         match_factor = range_factor * length_factor * active_factor
@@ -200,8 +222,14 @@ class Tracker:
     def update_track(self, track, framei):
         if not track['assigned']:
             track['inactive_count'] += 1
-            track['position'] = track['position'] + track['delta']
-            track['delta'] /= 2
+            delta = track['delta']
+            l, angle = vector_to_polar(delta)
+            if l > self.move_distance:
+                delta = np.array(polar_to_vector([self.move_distance, angle]))
+            else:
+                delta *= 0.95
+            track['position'] = track['position'] + delta
+            track['delta'] = delta
         track['assigned'] = False
         return framei - track['last_active'] < self.max_inactive
 
@@ -211,14 +239,12 @@ def calc_active_factor(track, min_active):
     return active_factor
 
 
-def calc_range_factor(track, distance, max_move_distance):
-    range_factor = 1
-    if max_move_distance > 0:
-        if track['inactive_count'] == 0:
-            range_factor = 1 - distance / max_move_distance
-        else:
-            factor_inactive = min(track['inactive_count'] * 0.1, 1)
-            range_factor = (1 - distance / (max_move_distance * factor_inactive)) / factor_inactive
+def calc_range_factor(track, distance, move_distance):
+    if track['inactive_count'] == 0:
+        range_factor = 1 - distance / move_distance
+    else:
+        factor_inactive = min(track['inactive_count'] * 0.1, 1)
+        range_factor = (1 - distance / (move_distance * factor_inactive)) / factor_inactive
     return range_factor
 
 
