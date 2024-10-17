@@ -61,7 +61,7 @@ class Tracker:
         else:
             data_writers = []
 
-        if self.debug_mode:
+        if self.debug_mode and self.output:
             self.debug_writer = CsvStreamWriter(self.output + '_debug.csv')
 
         if self.video_output:
@@ -180,7 +180,7 @@ class Tracker:
                     track = tracks_list[match_track_index]
                     distance = math.dist(track['position'], position)
                     if not track['assigned'] and self.check_match(track, distance):
-                        if self.debug_mode:
+                        if self.debug_mode and self.output:
                             self.debug_writer.write({'distance': distance})
                         self.assign_track(track, values, distance, framei)
                         assigned = True
