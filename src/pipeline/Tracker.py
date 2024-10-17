@@ -58,11 +58,10 @@ class Tracker:
                 FeatherFileWriter(self.output + '.feather', batch_size),
                 CsvStreamWriter(self.output + '.csv', batch_size),
             ]
+            if self.debug_mode:
+                self.debug_writer = CsvStreamWriter(self.output + '_debug.csv')
         else:
             data_writers = []
-
-        if self.debug_mode and self.output:
-            self.debug_writer = CsvStreamWriter(self.output + '_debug.csv')
 
         if self.video_output:
             width, height, nframes, fps = video_info(self.video_input[0])
@@ -120,9 +119,8 @@ class Tracker:
         if self.output:
             for data_writer in data_writers:
                 data_writer.close()
-
-        if self.debug_mode:
-            self.debug_writer.close()
+            if self.debug_mode:
+                self.debug_writer.close()
 
         if self.video_output:
             vidwriter.release()

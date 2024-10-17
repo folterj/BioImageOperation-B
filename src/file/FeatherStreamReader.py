@@ -1,6 +1,7 @@
 import pyarrow
 
 
+# TODO: allowing next() (iteration) and seek()
 class FeatherStreamReader:
     def __init__(self, input_files):
         self.input_files = input_files

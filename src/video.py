@@ -6,6 +6,7 @@ from src.util import get_filetitle_replace, create_color_table, color_float_to_c
 
 
 def video_iterator(video_infiles, start=0, end=None, interval=1):
+    # TODO: create class, allowing next() (iteration) and seek()
     for video_infile in tqdm(video_infiles):
         vidcap = cv.VideoCapture(video_infile)
         if start > 0:
