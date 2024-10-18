@@ -22,7 +22,7 @@ operations:
       position: [x_body, y_body]
       stream: True
       frame_start: "0:10"
-      frame_end: "1:00"
+      frame_end: "10:00"
       frame_interval: 1
       max_individuals: 60
       move_distance: 4
@@ -31,4 +31,4 @@ operations:
       max_inactive: 0
       output: tracked_test
       video_output: tracked_test.mp4
-      #debug_mode: True
+      debug_mode: True

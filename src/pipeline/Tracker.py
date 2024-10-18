@@ -96,7 +96,10 @@ class Tracker:
                 elif data_framei > framei:
                     frame_done = True
                 if not frame_done:
-                    data = next(data_iterator)
+                    try:
+                        data = next(data_iterator)
+                    except StopIteration:
+                        frame_done = True
 
             self.track_frame(framei, frame_values)
             if self.output:
